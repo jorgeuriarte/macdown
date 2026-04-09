@@ -549,6 +549,30 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     return YES;
 }
 
+- (void)presentedItemDidChange
+{
+    [super presentedItemDidChange];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSURL *url = self.fileURL;
+        if (!url || !url.isFileURL)
+            return;
+
+        NSDate *diskDate = nil;
+        NSError *attrError = nil;
+        if (![url getResourceValue:&diskDate forKey:NSURLContentModificationDateKey error:&attrError])
+            return;
+        NSDate *knownDate = self.fileModificationDate;
+        if (knownDate && diskDate && [diskDate compare:knownDate] != NSOrderedDescending)
+            return;
+
+        if (self.isDocumentEdited)
+            return; // don't clobber unsaved edits
+
+        NSError *revertError = nil;
+        [self revertToContentsOfURL:url ofType:self.fileType error:&revertError];
+    });
+}
+
 - (BOOL)prepareSavePanel:(NSSavePanel *)savePanel
 {
     savePanel.extensionHidden = NO;
