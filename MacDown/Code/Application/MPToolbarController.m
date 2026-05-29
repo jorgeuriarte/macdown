@@ -50,7 +50,12 @@ static CGFloat itemWidth = 37;
     // Set up layout drop down alternatives. title will be set in validateUserInterfaceItem:
     NSMenuItem *toggleEditorMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(toggleEditorPane:) keyEquivalent:@"e"];
     NSMenuItem *togglePreviewMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(togglePreviewPane:) keyEquivalent:@"p"];
-    
+
+    // Appearance drop-down options (Light / Dark / Sepia).
+    NSMenuItem *lightModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Light", @"Light appearance toolbar option") action:@selector(setLightMode:) keyEquivalent:@""];
+    NSMenuItem *darkModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Dark", @"Dark appearance toolbar option") action:@selector(setDarkMode:) keyEquivalent:@""];
+    NSMenuItem *sepiaModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Sepia", @"Sepia appearance toolbar option") action:@selector(setSepiaMode:) keyEquivalent:@""];
+
     // Set up all available toolbar items
     self->toolbarItems = @[
         [self toolbarItemGroupWithIdentifier:@"indent-group" separated:YES label:NSLocalizedString(@"Shift Left/Right", @"") items:@[
@@ -84,6 +89,17 @@ static CGFloat itemWidth = 37;
         [self toolbarItemDropDownWithIdentifier:@"layout" label:NSLocalizedString(@"Layout", @"Layout toolbar button") icon:@"ToolbarIconEditorAndPreview" menuItems:
             @[
               toggleEditorMenuItem, togglePreviewMenuItem
+            ]
+        ],
+        // Appended at the end so existing indices in toolbarDefaultItemIdentifiers: stay valid.
+        [self toolbarItemGroupWithIdentifier:@"zoom-group" separated:YES label:NSLocalizedString(@"Zoom Out/In", @"") items:@[
+            [self toolbarItemWithIdentifier:@"zoom-out" label:NSLocalizedString(@"Zoom Out", @"Zoom out toolbar button") icon:@"ToolbarIconZoomOut" action:@selector(makeFontSmaller:)],
+            [self toolbarItemWithIdentifier:@"zoom-in" label:NSLocalizedString(@"Zoom In", @"Zoom in toolbar button") icon:@"ToolbarIconZoomIn" action:@selector(makeFontLarger:)]
+            ]
+        ],
+        [self toolbarItemDropDownWithIdentifier:@"appearance" label:NSLocalizedString(@"Appearance", @"Appearance toolbar button") icon:@"ToolbarIconAppearance" menuItems:
+            @[
+              lightModeMenuItem, darkModeMenuItem, sepiaModeMenuItem
             ]
         ]
     ];
@@ -144,7 +160,8 @@ static CGFloat itemWidth = 37;
         // exclude some toolbar items from the default toolbar
         if ([itemIdentifier  isEqual: @"comment"]
             || [itemIdentifier  isEqual: @"highlight"]
-            || [itemIdentifier  isEqual: @"strikethrough"]) {
+            || [itemIdentifier  isEqual: @"strikethrough"]
+            || [itemIdentifier  isEqual: @"appearance"]) {
             // do nothing here
         }else {
             [defaultItemIdentifiers addObject:itemIdentifier];
@@ -164,7 +181,7 @@ static CGFloat itemWidth = 37;
 
         i++;
     }
-    
+
     return [defaultItemIdentifiers copy];
 }
 
