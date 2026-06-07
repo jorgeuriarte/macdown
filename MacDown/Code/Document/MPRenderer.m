@@ -381,6 +381,13 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     return scripts;
 }
 
+- (BOOL)currentHTMLHasMermaid
+{
+    // Mermaid fenced blocks render to <code class="language-mermaid">. Only pull in the
+    // (multi-megabyte) mermaid library when the current document actually contains one.
+    return [self.currentHtml rangeOfString:@"language-mermaid"].location != NSNotFound;
+}
+
 - (NSArray *)mermaidStylesheets
 {
     NSMutableArray *stylesheets = [NSMutableArray array];
@@ -433,12 +440,11 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     if ([delegate rendererHasSyntaxHighlighting:self])
     {
         [stylesheets addObjectsFromArray:self.prismStylesheets];
-        // mermaid
-        if ([delegate rendererHasMermaid:self])
-        {
-            [stylesheets addObjectsFromArray:self.mermaidStylesheets];
-        }
-        
+    }
+    // mermaid (independent of syntax highlighting; only when a diagram is present)
+    if ([delegate rendererHasMermaid:self] && [self currentHTMLHasMermaid])
+    {
+        [stylesheets addObjectsFromArray:self.mermaidStylesheets];
     }
 
     if ([delegate rendererCodeBlockAccesory:self] == MPCodeBlockAccessoryCustom)
@@ -456,16 +462,16 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     if ([d rendererHasSyntaxHighlighting:self])
     {
         [scripts addObjectsFromArray:self.prismScripts];
-        // mermaid
-        if ([d rendererHasMermaid:self])
-        {
-            [scripts addObjectsFromArray:self.mermaidScripts];
-        }
         // graphviz
         if ([d rendererHasGraphviz:self])
         {
             [scripts addObjectsFromArray:self.graphvizScripts];
         }
+    }
+    // mermaid (independent of syntax highlighting; only when a diagram is present)
+    if ([d rendererHasMermaid:self] && [self currentHTMLHasMermaid])
+    {
+        [scripts addObjectsFromArray:self.mermaidScripts];
     }
     if ([d rendererHasMathJax:self])
         [scripts addObjectsFromArray:self.mathjaxScripts];
@@ -632,16 +638,19 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
         scriptsOption = MPAssetEmbedded;
         [styles addObjectsFromArray:self.prismStylesheets];
         [scripts addObjectsFromArray:self.prismScripts];
-        if ([self.delegate rendererHasMermaid:self])
-        {
-            [styles addObjectsFromArray:self.mermaidStylesheets];
-            [scripts addObjectsFromArray:self.mermaidScripts];
-        }
         if ([self.delegate rendererHasGraphviz:self])
         {
             [scripts addObjectsFromArray:self.graphvizScripts];
         }
 
+    }
+    // mermaid (independent of syntax highlighting; only when a diagram is present)
+    if ([self.delegate rendererHasMermaid:self] && [self currentHTMLHasMermaid])
+    {
+        stylesOption = MPAssetEmbedded;
+        scriptsOption = MPAssetEmbedded;
+        [styles addObjectsFromArray:self.mermaidStylesheets];
+        [scripts addObjectsFromArray:self.mermaidScripts];
     }
     if ([self.delegate rendererHasMathJax:self])
     {

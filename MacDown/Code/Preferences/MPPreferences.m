@@ -275,6 +275,8 @@ static NSString * const kMPDefaultHtmlStyleName = @"GitHub";
         self.editorInsertPrefixInBlock = YES;
     if (![defaults objectForKey:@"htmlTemplateName"])
         self.htmlTemplateName = @"Default";
+    if (![defaults objectForKey:@"htmlMermaid"])
+        self.htmlMermaid = YES;
 }
 
 @end
