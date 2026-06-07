@@ -15,7 +15,7 @@
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <customView id="Hz6-mo-xeY">
-            <rect key="frame" x="0.0" y="0.0" width="353" height="249"/>
+            <rect key="frame" x="0.0" y="0.0" width="680" height="285"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <subviews>
                 <box autoresizesSubviews="NO" title="Update" borderType="line" translatesAutoresizingMaskIntoConstraints="NO" id="eLn-fW-Agu">
@@ -144,6 +144,33 @@
                                     <binding destination="-2" name="value" keyPath="self.preferences.createFileForLinkTarget" id="MLt-T7-Cm3"/>
                                 </connections>
                             </button>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="dfl-Lb-0001">
+                                <rect key="frame" x="16" y="-15" width="92" height="16"/>
+                                <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Default layout:" id="dfl-Lc-0002">
+                                    <font key="font" metaFont="system"/>
+                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="dfl-Pp-0003">
+                                <rect key="frame" x="112" y="-20" width="187" height="26"/>
+                                <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" id="dfl-Pc-0004">
+                                    <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="menu"/>
+                                    <menu key="menu" id="dfl-Mn-0005">
+                                        <items>
+                                            <menuItem title="Editor and preview" state="on" id="dfl-I0-0006">
+                                                <modifierMask key="keyEquivalentModifierMask"/>
+                                            </menuItem>
+                                            <menuItem title="Editor only" id="dfl-I1-0007"/>
+                                            <menuItem title="Preview only" id="dfl-I2-0008"/>
+                                        </items>
+                                    </menu>
+                                </popUpButtonCell>
+                                <connections>
+                                    <binding destination="-2" name="selectedIndex" keyPath="self.preferences.editorDefaultLayout" id="dfl-Bd-0009"/>
+                                </connections>
+                            </popUpButton>
                         </subviews>
                     </view>
                     <constraints>
@@ -153,7 +180,13 @@
                         <constraint firstItem="hqr-gd-6gi" firstAttribute="top" secondItem="Nma-PL-ZvX" secondAttribute="top" constant="25" id="1wH-Rt-vj6"/>
                         <constraint firstAttribute="trailing" secondItem="UZT-HE-EaK" secondAttribute="trailing" constant="16" id="72H-A1-Jxe"/>
                         <constraint firstItem="WVd-hz-Dcr" firstAttribute="leading" secondItem="Nma-PL-ZvX" secondAttribute="leading" constant="16" id="CHN-Yp-0Ff"/>
-                        <constraint firstAttribute="bottom" secondItem="UZT-HE-EaK" secondAttribute="bottom" constant="11" id="Jkz-15-VH9"/>
+                        <constraint firstItem="UZT-HE-EaK" firstAttribute="top" secondItem="WVd-hz-Dcr" secondAttribute="bottom" constant="6" id="dfl-K1-0010"/>
+                        <constraint firstItem="dfl-Pp-0003" firstAttribute="top" secondItem="UZT-HE-EaK" secondAttribute="bottom" constant="10" id="dfl-K2-0011"/>
+                        <constraint firstItem="dfl-Lb-0001" firstAttribute="leading" secondItem="Nma-PL-ZvX" secondAttribute="leading" constant="16" id="dfl-K3-0012"/>
+                        <constraint firstItem="dfl-Pp-0003" firstAttribute="leading" secondItem="dfl-Lb-0001" secondAttribute="trailing" constant="6" id="dfl-K4-0013"/>
+                        <constraint firstItem="dfl-Lb-0001" firstAttribute="centerY" secondItem="dfl-Pp-0003" secondAttribute="centerY" id="dfl-K5-0014"/>
+                        <constraint firstAttribute="bottom" secondItem="dfl-Pp-0003" secondAttribute="bottom" constant="12" id="dfl-K6-0015"/>
+                        <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="dfl-Pp-0003" secondAttribute="trailing" constant="16" id="dfl-K7-0016"/>
                         <constraint firstItem="6Nz-Ft-FbR" firstAttribute="leading" secondItem="Nma-PL-ZvX" secondAttribute="leading" constant="16" id="Orz-1j-PcM"/>
                         <constraint firstAttribute="trailing" secondItem="Vab-4T-IU5" secondAttribute="trailing" constant="16" id="SSy-nb-3Jk"/>
                         <constraint firstItem="hqr-gd-6gi" firstAttribute="leading" secondItem="Nma-PL-ZvX" secondAttribute="leading" constant="16" id="al2-wQ-QB5"/>
