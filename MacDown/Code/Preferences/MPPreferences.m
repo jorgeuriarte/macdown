@@ -103,6 +103,7 @@ static NSString * const kMPDefaultHtmlStyleName = @"GitHub2";
 @dynamic editorWidthLimited;
 @dynamic editorMaximumWidth;
 @dynamic editorOnRight;
+@dynamic editorDefaultLayout;
 @dynamic editorShowWordCount;
 @dynamic editorWordCountType;
 @dynamic editorScrollsPastEnd;

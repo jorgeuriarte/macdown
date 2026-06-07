@@ -35,6 +35,14 @@
 static NSString * const kMPDefaultAutosaveName = @"Untitled";
 
 
+// Default layout for a newly-opened document. Raw values match the popup item
+// indices in the General preferences pane (selectedIndex binding).
+typedef NS_ENUM(NSInteger, MPDefaultLayout) {
+    MPDefaultLayoutBoth = 0,
+    MPDefaultLayoutEditorOnly = 1,
+    MPDefaultLayoutPreviewOnly = 2,
+};
+
 NS_INLINE NSString *MPEditorPreferenceKeyWithValueKey(NSString *key)
 {
     if (!key.length)
@@ -456,6 +464,7 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         [self setupEditor:nil];
         [self redrawDivider];
         [self reloadFromLoadedString];
+        [self applyDefaultLayout];
     }];
 }
 
@@ -1490,6 +1499,34 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 
 #pragma mark - Private
+
+- (void)applyDefaultLayout
+{
+    // ratio 0.0 collapses the left pane, 1.0 collapses the right pane. The editor
+    // is the left pane unless `editorOnRight` swaps them, so flip accordingly.
+    BOOL editorOnRight = self.preferences.editorOnRight;
+    switch (self.preferences.editorDefaultLayout)
+    {
+        case MPDefaultLayoutEditorOnly:     // hide the preview pane
+            [self setSplitViewDividerLocation:(editorOnRight ? 0.0 : 1.0)];
+            break;
+        case MPDefaultLayoutPreviewOnly:    // hide the editor pane
+            [self setSplitViewDividerLocation:(editorOnRight ? 1.0 : 0.0)];
+            break;
+        case MPDefaultLayoutBoth:
+        default:
+            // Only intervene if a pane is currently collapsed (e.g. a restored
+            // single-pane state); otherwise leave the user's split position alone.
+            if (!self.editorVisible || !self.previewVisible)
+            {
+                CGFloat ratio = self.previousSplitRatio;
+                if (ratio <= 0.0 || ratio >= 1.0)
+                    ratio = 0.5;
+                [self setSplitViewDividerLocation:ratio];
+            }
+            break;
+    }
+}
 
 - (void)toggleSplitterCollapsingEditorPane:(BOOL)forEditorPane
 {
