@@ -207,7 +207,6 @@ NS_INLINE BOOL MPAreNilableStringsEqual(NSString *s1, NSString *s2)
 @property (readonly) NSArray *prismStylesheets;
 @property (readonly) NSArray *prismScripts;
 @property (readonly) NSArray *mathjaxScripts;
-@property (readonly) NSArray *mermaidStylesheets;
 @property (readonly) NSArray *mermaidScripts;
 @property (readonly) NSArray *graphvizScripts;
 @property (readonly) NSArray *stylesheets;
@@ -441,16 +440,6 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
     return [self.currentHtml rangeOfString:@"language-mermaid"].location != NSNotFound;
 }
 
-- (NSArray *)mermaidStylesheets
-{
-    NSMutableArray *stylesheets = [NSMutableArray array];
-    
-    NSURL *url = MPExtensionURL(@"mermaid.forest", @"css");
-    [stylesheets addObject:[MPStyleSheet CSSWithURL:url]];
-    
-    return stylesheets;
-}
-
 - (NSArray *)mermaidScripts
 {
     // TODO
@@ -494,11 +483,10 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
     {
         [stylesheets addObjectsFromArray:self.prismStylesheets];
     }
-    // mermaid (independent of syntax highlighting; only when a diagram is present)
-    if ([delegate rendererHasMermaid:self] && [self currentHTMLHasMermaid])
-    {
-        [stylesheets addObjectsFromArray:self.mermaidStylesheets];
-    }
+    // Mermaid v11 styles diagrams entirely via the theme passed to
+    // mermaid.initialize() (inline in the rendered SVG), so no external mermaid
+    // stylesheet is injected here — the old forest.css hardcoded dark ink that
+    // was invisible on dark backgrounds.
 
     if ([delegate rendererCodeBlockAccesory:self] == MPCodeBlockAccessoryCustom)
     {
@@ -691,9 +679,9 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
     // mermaid (independent of syntax highlighting; only when a diagram is present)
     if ([self.delegate rendererHasMermaid:self] && [self currentHTMLHasMermaid])
     {
-        stylesOption = MPAssetEmbedded;
         scriptsOption = MPAssetEmbedded;
-        [styles addObjectsFromArray:self.mermaidStylesheets];
+        // Mermaid v11 themes the SVG inline via mermaid.initialize(); no external
+        // mermaid stylesheet is needed (see -stylesheets).
         [scripts addObjectsFromArray:self.mermaidScripts];
     }
     if ([self.delegate rendererHasMathJax:self])

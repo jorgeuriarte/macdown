@@ -10,10 +10,32 @@
     return;
   }
 
+  // Pick a mermaid theme that contrasts with the current preview background.
+  // The HTML style's CSS is embedded in <head> and applied by the time this
+  // end-of-body script runs, so we can read the real rendered background color.
+  // This works for any dark style (Solarized Dark, Clearness Dark, custom) with
+  // no theme-name lists to maintain.
+  function prefersDarkDiagram() {
+    function bgOf(el) {
+      return el ? window.getComputedStyle(el).backgroundColor : null;
+    }
+    var bg = bgOf(document.body);
+    if (!bg || bg === "transparent" || bg === "rgba(0, 0, 0, 0)") {
+      bg = bgOf(document.documentElement);
+    }
+    var m = bg && bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) {
+      return false;                                 // unknown → treat as light
+    }
+    var r = +m[1], g = +m[2], b = +m[3];
+    var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.5;
+  }
+
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "loose",
-    theme: "forest",
+    theme: prefersDarkDiagram() ? "dark" : "forest",
     flowchart: { useMaxWidth: true }
   });
 
