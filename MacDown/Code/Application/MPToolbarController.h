@@ -13,4 +13,11 @@
 
 @property (weak) IBOutlet MPDocument *document;
 
+/**
+ * Update the toolbar to reflect the editor's visibility. When the editor is
+ * hidden (preview-only layout) all text-formatting items are removed, since
+ * they have no effect without an editor to act on.
+ */
+- (void)updateForEditorVisible:(BOOL)editorVisible;
+
 @end

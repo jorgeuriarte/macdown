@@ -188,6 +188,19 @@ kbd {
   border-radius: 3px;
   box-shadow: inset 0 -1px 0 #bbb;
 }
+table {
+  margin-bottom: 20px;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 6px 13px;
+  border: 1px solid #93a1a1;
+}
+th {
+  font-weight: bold;
+  background-color: #eee8d5;
+}
 
 @media print {
   body {

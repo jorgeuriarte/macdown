@@ -1897,6 +1897,10 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             && !self.preferences.markdownManualRender)
         [self.renderer parseAndRenderNow];
     [self setupEditor:NSStringFromSelector(@selector(editorHorizontalInset))];
+
+    // Hide the text-formatting toolbar items when the editor is collapsed; they
+    // have nothing to act on in a preview-only layout.
+    [self.toolbarController updateForEditorVisible:self.editorVisible];
 }
 
 - (NSString *)presumedFileName

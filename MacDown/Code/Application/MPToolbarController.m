@@ -166,6 +166,48 @@ static CGFloat itemWidth = 37;
     return self->toolbarItemIdentifiers;
 }
 
+/**
+ * Item identifiers to show when only the preview pane is visible. All text
+ * formatting controls are dropped (they would act on the hidden editor); only
+ * the layout switcher and Copy HTML, which still make sense in preview-only
+ * mode, are kept and pushed to the trailing edge.
+ */
+- (NSArray<NSString *> *)previewOnlyToolbarItemIdentifiers
+{
+    return @[
+        NSToolbarFlexibleSpaceItemIdentifier,
+        @"copy-html",
+        @"layout",
+    ];
+}
+
+- (void)updateForEditorVisible:(BOOL)editorVisible
+{
+    NSToolbar *toolbar = self.document.windowForSheet.toolbar;
+    if (!toolbar)
+        return;
+
+    NSArray<NSString *> *desired = editorVisible
+        ? [self toolbarDefaultItemIdentifiers:toolbar]
+        : [self previewOnlyToolbarItemIdentifiers];
+
+    NSMutableArray<NSString *> *current = [NSMutableArray new];
+    for (NSToolbarItem *item in toolbar.items)
+        [current addObject:item.itemIdentifier];
+    if ([current isEqualToArray:desired])
+        return;
+
+    while (toolbar.items.count > 0)
+        [toolbar removeItemAtIndex:0];
+
+    NSUInteger index = 0;
+    for (NSString *identifier in desired)
+    {
+        [toolbar insertItemWithItemIdentifier:identifier atIndex:index];
+        index++;
+    }
+}
+
 - (NSArray<NSString *> *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar
 {
     return [self toolbarAllowedItemIdentifiers:toolbar];
