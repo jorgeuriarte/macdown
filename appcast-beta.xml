@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>MacDown (jorgeuriarte fork) — beta / experimental</title>
+    <title>MacDown (appcast-beta)</title>
     <link>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml</link>
-    <description>Actualizaciones de pre-lanzamiento (ramas experimentales, p.ej. cmark-gfm).</description>
+    <description>Actualizaciones del fork de mantenimiento de MacDown.</description>
     <language>es</language>
+    <item>
+      <title>Versión 0.9-cmark.1</title>
+      <pubDate>Sat, 13 Jun 2026 19:01:51 +0000</pubDate>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>0.9-cmark.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.9-cmark.1/MacDown.zip"
+        sparkle:dsaSignature="MD0CHQDh4d8RFqJjhsFAU+lJ3SaLpDNnfROk2ZDqBpaKAhwDanjyq3ay24YyFr2QPNcSHfg4QmLj/RX2ufT3"
+        length="7919235"
+        type="application/octet-stream" />
+    </item>
   </channel>
 </rss>
