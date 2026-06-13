@@ -399,6 +399,31 @@
                                     <action selector="toggleEditorPane:" target="-1" id="BGN-6z-VZN"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="qvm-sep-0001"/>
+                            <menuItem title="Editor &amp; Preview" keyEquivalent="1" id="qvm-both-0001">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showEditorAndPreview:" target="-1" id="qvm-both-act1"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Editor Only" keyEquivalent="2" id="qvm-edit-0001">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showEditorOnly:" target="-1" id="qvm-edit-act1"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Preview Only" keyEquivalent="3" id="qvm-prev-0001">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showPreviewOnly:" target="-1" id="qvm-prev-act1"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Cycle View Mode" keyEquivalent="0" id="qvm-cycle-0001">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="cycleViewMode:" target="-1" id="qvm-cycle-act1"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Cux-kV-g5Z"/>
                             <menuItem title="Show Toolbar" keyEquivalent="t" id="fKI-yk-0lv">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
