@@ -1,7 +1,12 @@
 # Actualizaciones automáticas (Sparkle)
 
-MacDown usa **Sparkle 1** para actualizarse. Este fork lo apunta a **nuestras
-propias releases** en lugar del feed (muerto) del proyecto original.
+MacDown usa **Sparkle 2** (firma **EdDSA**) para actualizarse. Este fork lo apunta
+a **nuestras propias releases** en lugar del feed (muerto) del proyecto original.
+
+> Nota: en macOS moderno, Sparkle deshabilita "Buscar actualizaciones" (menú gris)
+> en apps **no notarizadas** si no hay clave **EdDSA** (`SUPublicEDKey`). Por eso se
+> migró de Sparkle 1/DSA a Sparkle 2/EdDSA. La app debe ejecutarse desde
+> `/Applications` sin cuarentena (si no, App Translocation también lo deshabilita).
 
 ## Cómo funciona
 
