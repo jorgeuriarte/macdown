@@ -211,6 +211,8 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property (strong) HGMarkdownHighlighter *highlighter;
 @property (strong) MPRenderer *renderer;
 @property CGFloat previousSplitRatio;
+/// Aplica directamente un modo de vista (Editor&Preview / Solo Editor / Solo Vista).
+- (void)applyLayoutMode:(MPDefaultLayout)mode;
 @property BOOL manualRender;
 @property BOOL copying;
 @property BOOL printing;
@@ -739,6 +741,22 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
                         : MPViewModeLight;
         it.state = (self.preferences.appViewMode == mode)
             ? NSControlStateValueOn : NSControlStateValueOff;
+    }
+    else if ((action == @selector(showEditorAndPreview:)
+              || action == @selector(showEditorOnly:)
+              || action == @selector(showPreviewOnly:))
+             && [(NSObject *)item isKindOfClass:[NSMenuItem class]])
+    {
+        NSMenuItem *it = (NSMenuItem *)item;
+        BOOL ed = self.editorVisible, pv = self.previewVisible;
+        BOOL active;
+        if (action == @selector(showEditorAndPreview:))
+            active = (ed && pv);
+        else if (action == @selector(showEditorOnly:))
+            active = (ed && !pv);
+        else
+            active = (!ed && pv);
+        it.state = active ? NSControlStateValueOn : NSControlStateValueOff;
     }
     return result;
 }
@@ -1632,6 +1650,61 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 - (IBAction)toggleEditorPane:(id)sender
 {
     [self toggleSplitterCollapsingEditorPane:YES];
+}
+
+#pragma mark - Quick view-mode switching
+
+- (void)applyLayoutMode:(MPDefaultLayout)mode
+{
+    // ratio 0.0 colapsa el panel izquierdo, 1.0 el derecho. El editor es el
+    // izquierdo salvo que editorOnRight los intercambie.
+    BOOL editorOnRight = self.preferences.editorOnRight;
+    switch (mode)
+    {
+        case MPDefaultLayoutEditorOnly:     // solo editor (oculta la vista)
+            [self setSplitViewDividerLocation:(editorOnRight ? 0.0 : 1.0)];
+            break;
+        case MPDefaultLayoutPreviewOnly:    // solo vista (oculta el editor)
+            [self setSplitViewDividerLocation:(editorOnRight ? 1.0 : 0.0)];
+            break;
+        case MPDefaultLayoutBoth:
+        default:                            // ambos paneles, split equilibrado
+        {
+            CGFloat ratio = self.previousSplitRatio;
+            if (ratio <= 0.0 || ratio >= 1.0)
+                ratio = 0.5;
+            [self setSplitViewDividerLocation:ratio];
+            break;
+        }
+    }
+}
+
+- (IBAction)showEditorAndPreview:(id)sender
+{
+    [self applyLayoutMode:MPDefaultLayoutBoth];
+}
+
+- (IBAction)showEditorOnly:(id)sender
+{
+    [self applyLayoutMode:MPDefaultLayoutEditorOnly];
+}
+
+- (IBAction)showPreviewOnly:(id)sender
+{
+    [self applyLayoutMode:MPDefaultLayoutPreviewOnly];
+}
+
+- (IBAction)cycleViewMode:(id)sender
+{
+    // Rota Editor&Preview -> Solo Editor -> Solo Vista -> Editor&Preview.
+    MPDefaultLayout next;
+    if (self.editorVisible && self.previewVisible)
+        next = MPDefaultLayoutEditorOnly;
+    else if (self.editorVisible)
+        next = MPDefaultLayoutPreviewOnly;
+    else
+        next = MPDefaultLayoutBoth;
+    [self applyLayoutMode:next];
 }
 
 - (IBAction)render:(id)sender
