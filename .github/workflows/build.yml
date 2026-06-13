@@ -1,0 +1,94 @@
+name: Build
+
+# Entorno de build canónico del fork. En cada push/PR a master valida que el
+# proyecto compila y sube el .app como artefacto. Al empujar un tag vX.Y.Z,
+# además publica una GitHub Release con los binarios.
+#
+# Crear una release:
+#   git tag v0.8.0 && git push origin v0.8.0
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # necesario para crear el release y subir assets
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14      # Xcode 15.x estable; compila x86_64 + arm64
+    steps:
+      - name: Checkout (con submódulos)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0     # historia completa para el número de build basado en git
+
+      - name: Generar el parser PEG del editor
+        # peg-markdown-highlight está vendorizado pero pmh_parser.c se genera
+        # desde la gramática .leg con el 'greg' incluido en el propio Makefile.
+        run: make -C Dependency/peg-markdown-highlight
+
+      - name: Preparar Ruby + CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+
+      - name: Instalar dependencias (CocoaPods)
+        run: |
+          gem install cocoapods -v 1.16.2 --no-document
+          pod install
+
+      - name: Compilar MacDown (universal, sin firma)
+        run: |
+          xcodebuild \
+            -workspace MacDown.xcworkspace \
+            -scheme MacDown \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            MACOSX_DEPLOYMENT_TARGET=10.13 \
+            ARCHS="x86_64 arm64" \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Empaquetar .app (ZIP + DMG)
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release/MacDown.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::No se generó $APP"; exit 1
+          fi
+          mkdir -p dist
+          ditto -c -k --keepParent "$APP" "dist/MacDown.zip"
+          hdiutil create -volname "MacDown" -srcfolder "$APP" \
+            -ov -format UDZO "dist/MacDown.dmg"
+          echo "Arquitecturas del binario:"
+          lipo -info "$APP/Contents/MacOS/MacDown" || true
+          ls -la dist
+
+      - name: Subir artefacto de build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacDown-app
+          path: dist/*
+          retention-days: 30
+
+      - name: Publicar GitHub Release (solo en tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/MacDown.zip dist/MacDown.dmg \
+            --title "MacDown ${GITHUB_REF_NAME}" \
+            --generate-notes
