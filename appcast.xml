@@ -6,14 +6,14 @@
     <description>Actualizaciones del fork de mantenimiento de MacDown.</description>
     <language>es</language>
     <item>
-      <title>Versión 0.8.8-ju</title>
-      <pubDate>Sat, 13 Jun 2026 22:40:30 +0000</pubDate>
-      <sparkle:version>36</sparkle:version>
-      <sparkle:shortVersionString>0.8.8-ju</sparkle:shortVersionString>
+      <title>Versión 0.8.9-ju</title>
+      <pubDate>Sat, 13 Jun 2026 22:44:09 +0000</pubDate>
+      <sparkle:version>38</sparkle:version>
+      <sparkle:shortVersionString>0.8.9-ju</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.8.8-ju/MacDown.zip"
-        sparkle:edSignature="hLf8h1vozrPfijZ+zRCjU1DQ9kPxhfko+oQRREAp8hQZNYF0wbpJOuqfg8JXaFfwzN1VUaT0kZ698LY7Vs3VDA==" length="8452051"
+        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.8.9-ju/MacDown.zip"
+        sparkle:edSignature="P8KPCFtB+zpSE2khnycr3hj9nF/Te2SmtpgxrCbfcspvbUwyL6GSuefhWDFjbcr0vWRjFtM4rp6wGZe9LLhiAA==" length="8452075"
         type="application/octet-stream" />
     </item>
   </channel>
