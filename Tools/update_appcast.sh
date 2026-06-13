@@ -1,33 +1,36 @@
 #!/usr/bin/env bash
-# Genera un appcast de Sparkle 1 (firma DSA) con la release indicada como único
+# Genera un appcast de Sparkle 2 (firma EdDSA) con la release indicada como único
 # item (Sparkle solo necesita conocer la última versión para ofrecer la update).
 #
 # Uso:
 #   Tools/update_appcast.sh <zip> <version> <shortVersion> <enclosureURL> \
-#                           <privKeyFile> <appcastOut> [minSystemVersion] [pubDate]
+#                           <edKeyFile> <appcastOut> [minSystemVersion] [pubDate]
 #
 #   <zip>            ruta al .zip de la app (se firma y se mide su tamaño)
 #   <version>       CFBundleVersion (entero creciente; sparkle:version)
-#   <shortVersion>  CFBundleShortVersionString (p.ej. 0.8.3)
+#   <shortVersion>  CFBundleShortVersionString (p.ej. 0.8.7-ju)
 #   <enclosureURL>  URL pública del .zip (asset de la GitHub Release)
-#   <privKeyFile>   clave privada DSA (NUNCA se versiona; viene de un secreto)
+#   <edKeyFile>     clave privada EdDSA (NUNCA se versiona; viene de un secreto)
 #   <appcastOut>    ruta de salida del appcast.xml
 #   [minSystem]     versión mínima de macOS (por defecto 10.13)
 #   [pubDate]       fecha RFC-822 (por defecto: ahora en UTC)
+#
+# Requiere la herramienta sign_update de Sparkle 2 (Pods/Sparkle/bin/sign_update
+# tras `pod install`, o la ruta indicada en la variable de entorno SIGN_UPDATE).
 set -euo pipefail
 
-ZIP="$1"; VERSION="$2"; SHORTVER="$3"; URL="$4"; PRIVKEY="$5"; OUT="$6"
+ZIP="$1"; VERSION="$2"; SHORTVER="$3"; URL="$4"; EDKEY="$5"; OUT="$6"
 MINSYS="${7:-10.13}"
 PUBDATE="${8:-$(date -u "+%a, %d %b %Y %H:%M:%S +0000")}"
 
-[ -f "$ZIP" ] || { echo "ERROR: no existe el zip $ZIP" >&2; exit 1; }
-[ -f "$PRIVKEY" ] || { echo "ERROR: no existe la clave privada $PRIVKEY" >&2; exit 1; }
+SIGNTOOL="${SIGN_UPDATE:-Pods/Sparkle/bin/sign_update}"
 
-# Tamaño del archivo (macOS y Linux)
-LENGTH=$(stat -f%z "$ZIP" 2>/dev/null || stat -c%s "$ZIP")
+[ -f "$ZIP" ]    || { echo "ERROR: no existe el zip $ZIP" >&2; exit 1; }
+[ -f "$EDKEY" ]  || { echo "ERROR: no existe la clave EdDSA $EDKEY" >&2; exit 1; }
+[ -x "$SIGNTOOL" ] || { echo "ERROR: sign_update no encontrado en $SIGNTOOL" >&2; exit 1; }
 
-# Firma DSA-SHA1 en base64 (idéntico a lo que verifica Sparkle 1 con dsa_pub.pem)
-SIG=$(openssl dgst -sha1 -binary < "$ZIP" | openssl dgst -sha1 -sign "$PRIVKEY" | openssl enc -base64 | tr -d '\n')
+# sign_update emite directamente:  sparkle:edSignature="..." length="..."
+SIG_AND_LENGTH=$("$SIGNTOOL" --ed-key-file "$EDKEY" "$ZIP")
 
 TITLE="MacDown ($(basename "$OUT" .xml))"
 
@@ -47,12 +50,11 @@ cat > "$OUT" <<EOF
       <sparkle:minimumSystemVersion>${MINSYS}</sparkle:minimumSystemVersion>
       <enclosure
         url="${URL}"
-        sparkle:dsaSignature="${SIG}"
-        length="${LENGTH}"
+        ${SIG_AND_LENGTH}
         type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 EOF
 
-echo "appcast generado: $OUT (v${SHORTVER}, build ${VERSION}, ${LENGTH} bytes)"
+echo "appcast generado: $OUT (v${SHORTVER}, build ${VERSION})"
