@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>MacDown (jorgeuriarte fork) — estable</title>
+    <title>MacDown (appcast)</title>
     <link>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast.xml</link>
     <description>Actualizaciones del fork de mantenimiento de MacDown.</description>
     <language>es</language>
+    <item>
+      <title>Versión 0.8.3</title>
+      <pubDate>Sat, 13 Jun 2026 17:00:00 +0000</pubDate>
+      <sparkle:version>14</sparkle:version>
+      <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.8.3/MacDown.zip"
+        sparkle:dsaSignature="MDwCHBfR/VHf8zOi+wZHkwaT6SXQYSNwI/jdLOCQYOICHApYFi+eVEl+Vmyj2RfycRuy+LDbPmdRIs1h1kg="
+        length="8941868"
+        type="application/octet-stream" />
+    </item>
   </channel>
 </rss>
