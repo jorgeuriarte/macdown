@@ -22,7 +22,7 @@ jobs:
   build:
     runs-on: macos-14
     steps:
-      - name: Checkout (con submódulos: prism + cmark-gfm)
+      - name: Checkout (submódulos prism y cmark-gfm)
         uses: actions/checkout@v4
         with:
           submodules: recursive
