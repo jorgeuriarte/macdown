@@ -108,7 +108,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin master
-          git checkout -B master origin/master
+          # -f descarta los cambios de "Fijar versión" en el working tree (el
+          # appcast se genera desde dist/MacDown.zip, ya construido).
+          git checkout -f -B master origin/master
           KEYFILE="$(mktemp)"; printf '%s' "$SPARKLE_DSA_PRIVATE_KEY" > "$KEYFILE"
           Tools/update_appcast.sh dist/MacDown.zip "${GITHUB_RUN_NUMBER}" "$SHORTVER" "$URL" "$KEYFILE" "appcast-beta.xml" 11.0
           rm -f "$KEYFILE"
