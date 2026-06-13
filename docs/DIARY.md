@@ -24,7 +24,28 @@
   por out-of-bounds en `MPToolbarController toolbarDefaultItemIdentifiers:`.
 - El segundo patrón universal es Apple Silicon (arm64) + subir deployment target.
 
+### Resultados (misma sesión)
+- Repo creado: **github.com/jorgeuriarte/macdown** (privado) y push de `master`.
+- Workflow `.github/workflows/build.yml`: build universal (arm64+x86_64) sin firma
+  en `macos-14`, genera el parser PEG, `pod install`, empaqueta ZIP+DMG.
+  **Build verde a la primera.**
+- Pipeline de release/tagging probado: tag **v0.8.1** → release publicada con
+  `MacDown.dmg` + `MacDown.zip`, versión inyectada desde el tag (0.8.1, build 4).
+- Smoke test del binario publicado: proceso vivo 7s sin crash report → **no
+  reproduce el crash de arranque del toolbar**.
+
+### Pendiente / salvedades honestas
+- **Sin firma ni notarización**: Gatekeeper bloqueará la app (abrir con clic
+  derecho → Abrir, o `xattr -dr com.apple.quarantine MacDown.app`). Firma con
+  Developer ID = mejora futura (requiere certificado).
+- **Verificación visual completa**: falta abrir la app en un Mac y usarla de
+  verdad (el entorno de desarrollo es headless con Xcode roto).
+- **Dependabot heredado** de plateaukao genera PRs/runs de ruido: decidir si
+  desactivarlo o acotarlo.
+- El versionado correcto solo se inyecta en releases (tags); los builds de
+  `master` muestran 0.1.
+
 ### Próximos pasos
-- Crear el repo en GitHub y hacer push.
-- Montar el workflow de build/release/tag en GitHub Actions e iterar hasta verde.
-- Verificar que el `.app` resultante arranca; portar el fix del toolbar si falta.
+- Cherry-pick incremental de features (Quick Look de treehouse, export de nyimbi…).
+- Firmar/notarizar releases.
+- (Opcional) Workflow programado que ejecute el tracker de forks y avise de novedades.
