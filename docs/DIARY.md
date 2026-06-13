@@ -57,8 +57,19 @@
 - Feature de *tamaño de ventana preferido* (duro) **descartada por ahora**: entrelazada
   con su preview-only, que solapa con plateaukao → requiere re-implementación.
 
+### Auto-update y más features (misma sesión)
+- **Auto-update Sparkle propio** (v0.8.3): feeds → nuestro repo, claves DSA propias
+  (privada en secreto de Actions), appcast firmado y publicado por el CI. Verificado
+  end-to-end (firma `Verified OK`). Pendiente: firma Developer ID + primer salto manual.
+- **Cambio rápido de modo de vista** (⌃⌘1/2/3 + ciclo ⌃⌘0) — feature propia, en master.
+- **Selector de canal de actualización**: ya existía (checkbox `updateIncludesPreReleases`);
+  solo se aclaró la etiqueta a "Include experimental (beta) updates".
+- **Rama `experiment/cmark-gfm`**: motor cmark-gfm (Carl/sigge), compila en CI, pre-release
+  `v0.9-cmark.1` en el canal experimental (firma verificada, arranca). Pierde
+  highlight/superscript/underline/quote. No se mergea a master.
+- **v0.8.4**: release estable con el cambio rápido de modo + selector aclarado.
+
 ### Próximos pasos
-- Features pendientes en `docs/CREDITS.md` (export DOCX/PPTX de nyimbi, Quick Look de
-  treehouse, cmark-gfm de sigge) — abordar las grandes como épicas propias.
+- Features pendientes en `docs/CREDITS.md` (export DOCX/PPTX de nyimbi, Quick Look de treehouse).
 - Firmar/notarizar releases (Developer ID) para evitar el bloqueo de Gatekeeper.
 - (Opcional) Workflow programado que ejecute el tracker de forks y avise de novedades.
