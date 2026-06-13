@@ -18,3 +18,17 @@ a su vez fork de [`MacDownApp/macdown`](https://github.com/MacDownApp/macdown)
 > (preserva autor y referencia al commit original), resolución de conflictos
 > documentada en el mensaje de commit, y validación de build en CI vía Pull
 > Request antes de integrar a `master`.
+
+## Candidatas pendientes (mapeadas, aún no integradas)
+
+Estas features tienen valor pero requieren más que un cherry-pick (re-implementación,
+desenredo de cambios entrelazados, o decisión por su tamaño/riesgo). Se documentan
+aquí para no perderlas y respetar su atribución desde ya.
+
+| Feature | Autor | Fork | Estado / motivo |
+|---|---|---|---|
+| Tamaño de ventana preferido | Adam Duro | [duro/macdown](https://github.com/duro/macdown) | Entrelazada con su modo *preview-only*, que solapa con el que ya trae plateaukao. Requiere adaptación manual. |
+| Export DOCX / PPTX, presets y portadas | Nyimbi Odero | [nyimbi/macdown](https://github.com/nyimbi/macdown) | Alto valor; 12 commits con archivos nuevos (`MPOfficeExporter`, `MPExportOptions`). Integración grande: abordar como épica propia. |
+| Quick Look Preview Extension (.md en Finder) | Tim (treehousetim) | [treehousetim/macdown](https://github.com/treehousetim/macdown) | Añade un *target* nuevo al `.xcodeproj`; no cherry-pickea limpio, requiere recrear el target. |
+| cmark-gfm (reemplazo de hoedown) + GitHub Dark / GitLab themes | Carl | [SiggeMcKvack/macdown](https://github.com/SiggeMcKvack/macdown) | Cambio estructural del motor de render; riesgo de romper extensiones (TODO/math/footnotes). Requiere decisión y validación. |
+| Modernización Apple Silicon + localización albanesa | Xhulio Lavdari | [xhu96/macdown](https://github.com/xhu96/macdown) | Parte ya cubierta por nuestro build universal; la localización es aislada y se puede traer aparte. |
