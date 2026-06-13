@@ -50,7 +50,12 @@ static CGFloat itemWidth = 37;
     // Set up layout drop down alternatives. title will be set in validateUserInterfaceItem:
     NSMenuItem *toggleEditorMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(toggleEditorPane:) keyEquivalent:@"e"];
     NSMenuItem *togglePreviewMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(togglePreviewPane:) keyEquivalent:@"p"];
-    
+
+    // Appearance drop-down options (Light / Dark / Sepia).
+    NSMenuItem *lightModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Light", @"Light appearance toolbar option") action:@selector(setLightMode:) keyEquivalent:@""];
+    NSMenuItem *darkModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Dark", @"Dark appearance toolbar option") action:@selector(setDarkMode:) keyEquivalent:@""];
+    NSMenuItem *sepiaModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Sepia", @"Sepia appearance toolbar option") action:@selector(setSepiaMode:) keyEquivalent:@""];
+
     // Set up all available toolbar items
     self->toolbarItems = @[
         [self toolbarItemGroupWithIdentifier:@"indent-group" separated:YES label:NSLocalizedString(@"Shift Left/Right", @"") items:@[
@@ -87,6 +92,17 @@ static CGFloat itemWidth = 37;
             @[
               toggleEditorMenuItem, togglePreviewMenuItem
             ]
+        ],
+        // Appended at the end so existing indices in toolbarDefaultItemIdentifiers: stay valid.
+        [self toolbarItemGroupWithIdentifier:@"zoom-group" separated:YES label:NSLocalizedString(@"Zoom Out/In", @"") items:@[
+            [self toolbarItemWithIdentifier:@"zoom-out" label:NSLocalizedString(@"Zoom Out", @"Zoom out toolbar button") icon:@"ToolbarIconZoomOut" action:@selector(makeFontSmaller:)],
+            [self toolbarItemWithIdentifier:@"zoom-in" label:NSLocalizedString(@"Zoom In", @"Zoom in toolbar button") icon:@"ToolbarIconZoomIn" action:@selector(makeFontLarger:)]
+            ]
+        ],
+        [self toolbarItemDropDownWithIdentifier:@"appearance" label:NSLocalizedString(@"Appearance", @"Appearance toolbar button") icon:@"ToolbarIconAppearance" menuItems:
+            @[
+              lightModeMenuItem, darkModeMenuItem, sepiaModeMenuItem
+            ]
         ]
     ];
     
@@ -112,13 +128,21 @@ static CGFloat itemWidth = 37;
     
     NSToolbarItemGroup *selectedGroup = self->toolbarItemIdentifierObjectDictionary[sender.identifier];
     NSToolbarItem *selectedItem = selectedGroup.subitems[selectedIndex];
-    
-    // Invoke the toolbar item's action
-    // Must convert to IMP to let the compiler know about the method definition
+
+    // Invoke the toolbar item's action on the document. We must go through a
+    // proper message send (not a hand-cast IMP) so self/_cmd/sender are all
+    // passed: in a Debug (-O0) ARC build the callee's prologue retains the
+    // sender parameter, and a bare `void (*)(id)` cast leaves that register
+    // uninitialised, crashing in objc_retain.
     MPDocument *document = self.document;
-    IMP imp = [document methodForSelector:selectedItem.action];
-    void (*impFunc)(id) = (void *)imp;
-    impFunc(document);
+    SEL action = selectedItem.action;
+    if ([document respondsToSelector:action])
+    {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        [document performSelector:action withObject:sender];
+#pragma clang diagnostic pop
+    }
 }
 
 
@@ -132,10 +156,14 @@ static CGFloat itemWidth = 37;
     // Mixed identifiers from dictionary and space at below specified indices
     NSMutableArray *defaultItemIdentifiers = [NSMutableArray new];
     
-    // Add a flexible space after the specified toolbar item indices.
+    // Add space after the specified toolbar item indices
+    int spaceAfterIndices[] = {}; // No space in the default set
     int flexibleSpaceAfterIndices[] = {2, 3, 5, 7, 11};
-    int flexCount = sizeof(flexibleSpaceAfterIndices) / sizeof(flexibleSpaceAfterIndices[0]);
+    const int spaceAfterCount = (int)(sizeof(spaceAfterIndices) / sizeof(int));
+    const int flexibleSpaceAfterCount =
+        (int)(sizeof(flexibleSpaceAfterIndices) / sizeof(int));
     int i = 0;
+    int j = 0;
     int k = 0;
 
     for (NSString *itemIdentifier in orderedToolbarItemIdentifiers)
@@ -143,13 +171,22 @@ static CGFloat itemWidth = 37;
         // exclude some toolbar items from the default toolbar
         if ([itemIdentifier  isEqual: @"comment"]
             || [itemIdentifier  isEqual: @"highlight"]
-            || [itemIdentifier  isEqual: @"strikethrough"]) {
+            || [itemIdentifier  isEqual: @"strikethrough"]
+            || [itemIdentifier  isEqual: @"appearance"]) {
             // do nothing here
         }else {
             [defaultItemIdentifiers addObject:itemIdentifier];
         }
 
-        if (k < flexCount && i == flexibleSpaceAfterIndices[k])
+        // Bounds-guard the index arrays so items can be appended to
+        // toolbarItems without walking off the end of these C arrays.
+        if (j < spaceAfterCount && i == spaceAfterIndices[j])
+        {
+            [defaultItemIdentifiers addObject:NSToolbarSpaceItemIdentifier];
+            j++;
+        }
+
+        if (k < flexibleSpaceAfterCount && i == flexibleSpaceAfterIndices[k])
         {
             [defaultItemIdentifiers addObject:NSToolbarFlexibleSpaceItemIdentifier];
             k++;
@@ -157,7 +194,7 @@ static CGFloat itemWidth = 37;
 
         i++;
     }
-    
+
     return [defaultItemIdentifiers copy];
 }
 
