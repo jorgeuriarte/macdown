@@ -45,7 +45,20 @@
 - El versionado correcto solo se inyecta en releases (tags); los builds de
   `master` muestran 0.1.
 
+### Integración de features (misma sesión)
+- **Dependabot heredado desactivado** y su PR cerrado.
+- Mapa completo de features candidatas con autoría (ver `docs/CREDITS.md`).
+- Features **integradas** (rama `feature/*` → PR → CI verde → merge, autoría preservada):
+  1. Font zoom + modos Light/Dark/Sepia + TOC interno + fix toolbar — **Reza Ambler**
+     (`RezaAmbler/macdown_arm`), 4 commits. Conflictos resueltos en `MPToolbarController.m`
+     (bounds-guard) y `MPDocument.m`.
+  2. Recarga automática al cambiar el fichero en disco — **Tim** (`treehousetim/macdown`), 1 commit.
+- **Release v0.8.2** publicada con ambas features (DMG+ZIP, universal).
+- Feature de *tamaño de ventana preferido* (duro) **descartada por ahora**: entrelazada
+  con su preview-only, que solapa con plateaukao → requiere re-implementación.
+
 ### Próximos pasos
-- Cherry-pick incremental de features (Quick Look de treehouse, export de nyimbi…).
-- Firmar/notarizar releases.
+- Features pendientes en `docs/CREDITS.md` (export DOCX/PPTX de nyimbi, Quick Look de
+  treehouse, cmark-gfm de sigge) — abordar las grandes como épicas propias.
+- Firmar/notarizar releases (Developer ID) para evitar el bloqueo de Gatekeeper.
 - (Opcional) Workflow programado que ejecute el tracker de forks y avise de novedades.
