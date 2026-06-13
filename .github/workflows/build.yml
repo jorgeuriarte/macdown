@@ -116,8 +116,9 @@ jobs:
           fi
           TAG="${GITHUB_REF_NAME}"
           SHORTVER="${TAG#v}"
-          # Tags con guion (p.ej. v1.0-cmark) => canal beta/experimental; resto => estable.
-          if [[ "$TAG" == *-* ]]; then APPCAST="appcast-beta.xml"; else APPCAST="appcast.xml"; fi
+          # master = canal estable siempre (el experimental lo gestiona su propia
+          # rama). Los tags estables llevan sufijo -ju (p.ej. v0.8.6-ju).
+          APPCAST="appcast.xml"
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/MacDown.zip"
 
           # Trabajamos sobre master (el build de un tag está en detached HEAD).
