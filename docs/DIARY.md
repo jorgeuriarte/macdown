@@ -69,7 +69,21 @@
   highlight/superscript/underline/quote. No se mergea a master.
 - **v0.8.4**: release estable con el cambio rápido de modo + selector aclarado.
 
+### Identidad propia, Sparkle 2 y convivencia (sesión)
+- **Identidad propia**: bundle ID `net.omelas.macdown` (estable) y
+  `net.omelas.macdown-cmark` (experimental), versión con sufijo `-ju`, atribución
+  al linaje en el copyright. Deja de suplantar a `com.uranusjr`.
+- **Auto-update arreglado** (el menú salía gris): causa real = Sparkle 2 deshabilita
+  updates en apps no notarizadas sin **EdDSA**. Solución: `SPUStandardUpdaterController`
+  + claves EdDSA (`SUPublicEDKey`, firma del appcast con `sign_update`). Validado:
+  la app localiza la nueva versión (SULastCheckTime + appcast en caché + 38>36).
+- **Convivencia**: estable (`MacDown.app`) y experimental (`MacDown cmark-gfm.app`)
+  instaladas y corriendo **a la vez**, con bundle IDs distintos. Verificado.
+- **Dropdown de layout**: modos de vista directos y selectivos (⌃⌘1/2/3 al lado).
+- Gatekeeper: sin notarización (de pago), instalar 1 vez desde /Applications sin
+  cuarentena; los auto-updates posteriores ya no disparan Gatekeeper.
+
 ### Próximos pasos
+- Aplicar Sparkle 2/EdDSA también a la rama experimental (su canal beta).
 - Features pendientes en `docs/CREDITS.md` (export DOCX/PPTX de nyimbi, Quick Look de treehouse).
 - Firmar/notarizar releases (Developer ID) para evitar el bloqueo de Gatekeeper.
-- (Opcional) Workflow programado que ejecute el tracker de forks y avise de novedades.
