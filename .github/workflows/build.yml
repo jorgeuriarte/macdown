@@ -7,7 +7,7 @@ name: Build (experimental cmark-gfm)
 #   git tag v0.9-cmark.1 && git push origin v0.9-cmark.1
 on:
   push:
-    branches: [ experiment/cmark-gfm ]
+    branches: [ experiment/cmark-gfm, feature/consolidate-on-cmark-gfm ]
     tags: [ 'v*-*' ]          # tags con guion => canal experimental
   workflow_dispatch:
 
@@ -40,6 +40,18 @@ jobs:
         run: |
           gem install cocoapods -v 1.16.2 --no-document
           pod install
+
+      - name: Ejecutar tests (MacDownTests)
+        run: |
+          xcodebuild test \
+            -workspace MacDown.xcworkspace \
+            -scheme MacDown \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            MACOSX_DEPLOYMENT_TARGET=11.0 \
+            ONLY_ACTIVE_ARCH=YES
 
       - name: Fijar versión desde el tag (en pre-releases)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -99,10 +111,10 @@ jobs:
       - name: Actualizar appcast del canal experimental (en tags)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          SPARKLE_DSA_PRIVATE_KEY: ${{ secrets.SPARKLE_DSA_PRIVATE_KEY }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${SPARKLE_DSA_PRIVATE_KEY:-}" ]; then
+          if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
             echo "::warning::Sin clave; se omite el appcast."; exit 0
           fi
           TAG="${GITHUB_REF_NAME}"
@@ -114,7 +126,7 @@ jobs:
           # -f descarta los cambios de "Fijar versión" en el working tree (el
           # appcast se genera desde dist/MacDown.zip, ya construido).
           git checkout -f -B master origin/master
-          KEYFILE="$(mktemp)"; printf '%s' "$SPARKLE_DSA_PRIVATE_KEY" > "$KEYFILE"
+          KEYFILE="$(mktemp)"; printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
           Tools/update_appcast.sh dist/MacDown.zip "${GITHUB_RUN_NUMBER}" "$SHORTVER" "$URL" "$KEYFILE" "appcast-beta.xml" 11.0
           rm -f "$KEYFILE"
           git add appcast-beta.xml

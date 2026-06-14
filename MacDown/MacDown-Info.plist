@@ -134,8 +134,8 @@
 	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml</string>
-	<key>SUPublicDSAKeyFile</key>
-	<string>dsa_pub.pem</string>
+	<key>SUPublicEDKey</key>
+	<string>z8By8xvYFDPrVUNpOJ1Fp+eppBp52rBY3mK+oXMTO5o=</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
