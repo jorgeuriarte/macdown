@@ -47,9 +47,16 @@ static CGFloat itemWidth = 37;
 
 - (void)setupToolbarItems
 {
-    // Set up layout drop down alternatives. title will be set in validateUserInterfaceItem:
-    NSMenuItem *toggleEditorMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(toggleEditorPane:) keyEquivalent:@"e"];
-    NSMenuItem *togglePreviewMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(togglePreviewPane:) keyEquivalent:@"p"];
+    // Layout drop down: comandos de modo de vista directos. El título se fija en
+    // validateUserInterfaceItem:, que además oculta el del estado actual. El
+    // atajo (⌃⌘1/2/3) se muestra al lado para que el usuario lo aprenda.
+    NSEventModifierFlags vmMask = NSEventModifierFlagControl | NSEventModifierFlagCommand;
+    NSMenuItem *showBothMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(showEditorAndPreview:) keyEquivalent:@"1"];
+    showBothMenuItem.keyEquivalentModifierMask = vmMask;
+    NSMenuItem *showEditorMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(showEditorOnly:) keyEquivalent:@"2"];
+    showEditorMenuItem.keyEquivalentModifierMask = vmMask;
+    NSMenuItem *showPreviewMenuItem = [[NSMenuItem alloc] initWithTitle:@"" action:@selector(showPreviewOnly:) keyEquivalent:@"3"];
+    showPreviewMenuItem.keyEquivalentModifierMask = vmMask;
 
     // Appearance drop-down options (Light / Dark / Sepia).
     NSMenuItem *lightModeMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Light", @"Light appearance toolbar option") action:@selector(setLightMode:) keyEquivalent:@""];
@@ -88,7 +95,7 @@ static CGFloat itemWidth = 37;
         [self toolbarItemWithIdentifier:@"strikethrough" label:NSLocalizedString(@"Strikethrough", @"Strikethrough toolbar button") icon:@"ToolbarIconStrikethrough" action:@selector(toggleStrikethrough:)],
         [self toolbarItemDropDownWithIdentifier:@"layout" label:NSLocalizedString(@"Layout", @"Layout toolbar button") icon:@"ToolbarIconEditorAndPreview" menuItems:
             @[
-              toggleEditorMenuItem, togglePreviewMenuItem
+              showBothMenuItem, showEditorMenuItem, showPreviewMenuItem
             ]
         ],
         // Appended at the end so existing indices in toolbarDefaultItemIdentifiers: stay valid.
