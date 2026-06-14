@@ -750,13 +750,23 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         NSMenuItem *it = (NSMenuItem *)item;
         BOOL ed = self.editorVisible, pv = self.previewVisible;
         BOOL active;
-        if (action == @selector(showEditorAndPreview:))
+        if (action == @selector(showEditorAndPreview:)) {
             active = (ed && pv);
-        else if (action == @selector(showEditorOnly:))
+            it.title = NSLocalizedString(@"Show Both Panes",
+                                         @"View mode: editor and preview");
+        } else if (action == @selector(showEditorOnly:)) {
             active = (ed && !pv);
-        else
+            it.title = NSLocalizedString(@"Show Editor Only",
+                                         @"View mode: editor only");
+        } else {
             active = (!ed && pv);
-        it.state = active ? NSControlStateValueOn : NSControlStateValueOff;
+            it.title = NSLocalizedString(@"Show Preview Only",
+                                         @"View mode: preview only");
+        }
+        // Selectivo: oculta la opción del estado actual; muestra solo las
+        // transiciones útiles (con su atajo ⌃⌘1/2/3 al lado).
+        it.hidden = active;
+        it.state = NSControlStateValueOff;
     }
     return result;
 }

@@ -140,3 +140,12 @@
 /* (No Comment) */
 "WORDS_PLURAL_STRING" = "%@ palabra;%@ palabras";
 
+/* View mode: editor and preview */
+"Show Both Panes" = "Ver ambas";
+
+/* View mode: editor only */
+"Show Editor Only" = "Ver editor";
+
+/* View mode: preview only */
+"Show Preview Only" = "Ver vista previa";
+
