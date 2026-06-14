@@ -46,6 +46,18 @@ jobs:
           gem install cocoapods -v 1.16.2 --no-document
           pod install
 
+      - name: Ejecutar tests (MacDownTests)
+        run: |
+          xcodebuild test \
+            -workspace MacDown.xcworkspace \
+            -scheme MacDown \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            MACOSX_DEPLOYMENT_TARGET=10.13 \
+            ONLY_ACTIVE_ARCH=YES
+
       - name: Fijar versión desde el tag (solo en releases)
         # El script update_build_number.sh del proyecto se auto-salta bajo CI,
         # así que en releases inyectamos aquí la versión derivada del tag vX.Y.Z.
