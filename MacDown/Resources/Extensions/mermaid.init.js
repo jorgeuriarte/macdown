@@ -45,17 +45,31 @@
       var graphSource = code.textContent || code.innerText;
 
       var container = code.parentElement;            // <pre>
-      if (container && container.tagName === "PRE") {
-        container = container.parentElement;         // wrapping <div>
+      // container es el <pre>. Sustituimos SOLO ese bloque por el diagrama, o el
+      // <div> que lo envuelve si existe y contiene únicamente el <pre> (estructura
+      // de hoedown). Con cmark-gfm NO hay <div> envolvente, así que subir al padre
+      // a ciegas y reescribir su innerHTML borraría el resto del preview.
+      var target = container;
+      if (container && container.tagName === "PRE" &&
+          container.parentElement &&
+          container.parentElement.tagName === "DIV" &&
+          container.parentElement.childElementCount === 1) {
+        target = container.parentElement;            // <div> envolvente (hoedown)
       }
-      if (!container) {
+      if (!target || !target.parentNode) {
         return;
       }
 
       mermaid.render("mmdGraph" + i, graphSource).then(function (result) {
-        container.innerHTML = result.svg;
+        var tmp = document.createElement("div");
+        tmp.innerHTML = result.svg;
+        var svgNode = tmp.firstElementChild || tmp.firstChild;
+        if (!svgNode) {
+          return;
+        }
+        target.parentNode.replaceChild(svgNode, target);
         if (typeof result.bindFunctions === "function") {
-          result.bindFunctions(container);
+          result.bindFunctions(svgNode);
         }
       }).catch(function (error) {
         console.error("mermaid render error:", error);
