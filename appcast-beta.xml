@@ -6,14 +6,14 @@
     <description>Actualizaciones del fork de mantenimiento de MacDown.</description>
     <language>es</language>
     <item>
-      <title>Versión 0.9-cons.3</title>
-      <pubDate>Mon, 15 Jun 2026 10:30:44 +0000</pubDate>
-      <sparkle:version>54</sparkle:version>
-      <sparkle:shortVersionString>0.9-cons.3</sparkle:shortVersionString>
+      <title>Versión 0.9-cons.4</title>
+      <pubDate>Mon, 15 Jun 2026 10:53:37 +0000</pubDate>
+      <sparkle:version>57</sparkle:version>
+      <sparkle:shortVersionString>0.9-cons.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.9-cons.3/MacDown.zip"
-        sparkle:edSignature="LV4TBKE3vDejZyvgS9ntHkd7Og8TfrIL/KR8kGsTVbdiBBGHUFGI0zcaedkrPfTbf8KdPFvfyzVz9Ifq613WCw==" length="8512503"
+        url="https://github.com/jorgeuriarte/macdown/releases/download/v0.9-cons.4/MacDown.zip"
+        sparkle:edSignature="KaUp+Re0wa2B9OROQc+zggjd/JpteOwjRmikGjPiNN7U4k4PJnsIp0PuYXCFtvOUGks223/yl4Q2Sq/w2EfUAg==" length="8513581"
         type="application/octet-stream" />
     </item>
   </channel>
