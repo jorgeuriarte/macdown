@@ -177,7 +177,7 @@ NS_INLINE NSColor *MPGetWebViewBackgroundColor(WebView *webview)
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101100
      WebEditingDelegate, WebFrameLoadDelegate, WebPolicyDelegate, WebResourceLoadDelegate,
 #endif
-     WKNavigationDelegate,
+     WKNavigationDelegate, WKScriptMessageHandler,
      MPAutosaving, MPRendererDataSource, MPRendererDelegate>
 
 typedef NS_ENUM(NSUInteger, MPWordCountType) {
@@ -240,12 +240,14 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 @property (copy) NSURL *wkPreviewTempURL;
 @property CGFloat wkPreviewContentHeight;   // alto total del contenido (px CSS)
 @property CGFloat wkPreviewVisibleHeight;   // alto visible del viewport (px CSS)
+@property NSTimeInterval suppressPreviewScrollUntil;  // anti-bucle editor↔preview
 - (BOOL)usesWKWebView;
 - (void)setupWKPreviewIfNeeded;
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
 - (void)updateEditorHeaderLocations;        // mitad "editor" de updateHeaderLocations
 - (void)refreshWKPreviewMetricsAsync;       // lee posiciones del preview (async)
 - (void)syncScrollersWK;
+- (void)syncEditorToPreviewScrollY:(CGFloat)previewY;
 
 @end
 
@@ -513,13 +515,18 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         self.preview.frameLoadDelegate = nil;
         self.preview.policyDelegate = nil;
 
-        // Spike WKWebView: limpiar el HTML temporal y soltar el delegado.
+        // Spike WKWebView: limpiar el HTML temporal y soltar delegados/handlers
+        // (addScriptMessageHandler: retiene self → hay que quitarlo para no fugar).
         if (self.wkPreviewTempURL)
         {
             [[NSFileManager defaultManager] removeItemAtURL:self.wkPreviewTempURL
                                                       error:NULL];
             self.wkPreviewTempURL = nil;
         }
+        @try {
+            [self.wkPreview.configuration.userContentController
+                removeScriptMessageHandlerForName:@"macdownScroll"];
+        } @catch (__unused NSException *e) {}
         self.wkPreview.navigationDelegate = nil;
 
         [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -1262,12 +1269,87 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         [config setValue:@YES forKey:@"allowUniversalAccessFromFileURLs"];
     } @catch (__unused NSException *e) {}
 
+    // Puente JS→ObjC: la vista avisa de su scroll para sincronizar el editor
+    // (preview→editor). Es el mecanismo WKScriptMessageHandler que reemplaza al
+    // windowScriptObject legacy (y base del futuro editor inline).
+    WKUserContentController *ucc = [[WKUserContentController alloc] init];
+    [ucc addScriptMessageHandler:self name:@"macdownScroll"];
+    NSString *scrollJS =
+        @"(function(){var t=false;function send(){t=false;"
+        @"if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdownScroll)"
+        @"window.webkit.messageHandlers.macdownScroll.postMessage(window.pageYOffset);}"
+        @"window.addEventListener('scroll',function(){if(!t){t=true;"
+        @"requestAnimationFrame(send);}},{passive:true});})();";
+    [ucc addUserScript:[[WKUserScript alloc] initWithSource:scrollJS
+        injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+    config.userContentController = ucc;
+
     WKWebView *wk = [[WKWebView alloc] initWithFrame:self.preview.bounds
                                        configuration:config];
     wk.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     wk.navigationDelegate = self;
     [self.preview addSubview:wk];
     self.wkPreview = wk;
+}
+
+#pragma mark - WKScriptMessageHandler (preview→editor scroll)
+
+- (void)userContentController:(WKUserContentController *)userContentController
+      didReceiveScriptMessage:(WKScriptMessage *)message
+{
+    if (![message.name isEqualToString:@"macdownScroll"])
+        return;
+    if (!self.preferences.editorSyncScrolling)
+        return;
+    // Ignora el eco de nuestros propios scrolls editor→preview (anti-bucle).
+    if ([NSDate timeIntervalSinceReferenceDate] < self.suppressPreviewScrollUntil)
+        return;
+    [self syncEditorToPreviewScrollY:[message.body doubleValue]];
+}
+
+// Inversa de syncScrollersWK: dada la Y de scroll de la vista, interpola la
+// posición equivalente en el editor y lo desplaza. Guarda shouldHandleBoundsChange
+// para que ese scroll del editor no rebote de vuelta a la vista.
+- (void)syncEditorToPreviewScrollY:(CGFloat)previewY
+{
+    NSArray<NSNumber *> *pv = _webViewHeaderLocations;
+    NSArray<NSNumber *> *ed = _editorHeaderLocations;
+    if (pv.count == 0 || ed.count == 0)
+        return;
+
+    CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
+    CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
+
+    // Busca el par de encabezados de la vista entre los que cae previewY.
+    NSInteger idx = -1;
+    for (NSInteger i = 0; i < (NSInteger)pv.count; i++)
+    {
+        if ([pv[i] doubleValue] <= previewY)
+            idx = i;
+        else
+            break;
+    }
+
+    CGFloat topPv = (idx >= 0) ? [pv[idx] doubleValue] : 0;
+    CGFloat botPv = ((idx + 1) < (NSInteger)pv.count)
+        ? [pv[idx + 1] doubleValue]
+        : MAX(topPv, self.wkPreviewContentHeight - self.wkPreviewVisibleHeight);
+    CGFloat frac = (botPv > topPv) ? MAX(0, MIN(1.0, (previewY - topPv) / (botPv - topPv))) : 0;
+
+    CGFloat topEd = (idx >= 0 && idx < (NSInteger)ed.count) ? [ed[idx] doubleValue] : 0;
+    CGFloat botEd = ((idx + 1) < (NSInteger)ed.count)
+        ? [ed[idx + 1] doubleValue]
+        : (editorContentHeight - editorVisibleHeight);
+    CGFloat editorY = topEd + (botEd - topEd) * frac;
+    editorY = MAX(0, MIN(editorY, MAX(0, editorContentHeight - editorVisibleHeight)));
+
+    BOOL prev = self.shouldHandleBoundsChange;
+    self.shouldHandleBoundsChange = NO;
+    NSClipView *clip = self.editor.enclosingScrollView.contentView;
+    NSRect b = clip.bounds;
+    b.origin.y = editorY;
+    clip.bounds = b;
+    self.shouldHandleBoundsChange = prev;
 }
 
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl
@@ -2315,6 +2397,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     CGFloat previewY = topHeaderY + (bottomHeaderY - topHeaderY) * percentScrolledBetweenHeaders;
     if (previewY < 0)
         previewY = 0;
+
+    // Suprime el eco preview→editor de este scroll que provocamos nosotros.
+    self.suppressPreviewScrollUntil = [NSDate timeIntervalSinceReferenceDate] + 0.25;
 
     NSString *js = [NSString stringWithFormat:
         @"window.scrollTo({top:%.1f,left:0,behavior:'instant'});", (double)previewY];
