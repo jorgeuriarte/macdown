@@ -131,9 +131,9 @@
 	<key>OSAScriptingDefinition</key>
 	<string>MacDown.sdef</string>
 	<key>SUBetaFeedURL</key>
-	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml</string>
+	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-remix.xml</string>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml</string>
+	<string>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-remix.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>z8By8xvYFDPrVUNpOJ1Fp+eppBp52rBY3mK+oXMTO5o=</string>
 	<key>UTExportedTypeDeclarations</key>

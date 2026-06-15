@@ -259,7 +259,7 @@ NS_INLINE void treat()
         initWithContentRect:NSMakeRect(0, 0, 500, 470)
                   styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
                     backing:NSBackingStoreBuffered defer:NO];
-    win.title = NSLocalizedString(@"Acerca de MacDown Remix", @"About Remix window title");
+    win.title = NSLocalizedString(@"About MacDown Remix", @"About Remix window title");
     win.releasedWhenClosed = NO;
     NSView *content = win.contentView;
 
@@ -279,7 +279,7 @@ NS_INLINE void treat()
     NSString *build = [[NSBundle mainBundle]
         objectForInfoDictionaryKey:@"CFBundleVersion"];
     NSTextField *version = [NSTextField labelWithString:
-        [NSString stringWithFormat:NSLocalizedString(@"Versión %@ (build %@)", @""),
+        [NSString stringWithFormat:NSLocalizedString(@"Version %@ (build %@)", @""),
          ver ?: @"?", build ?: @"?"]];
     version.frame = NSMakeRect(0, 338, 500, 18);
     version.alignment = NSTextAlignmentCenter;
@@ -301,13 +301,13 @@ NS_INLINE void treat()
     [content addSubview:scroll];
 
     NSButton *origBtn = [NSButton
-        buttonWithTitle:NSLocalizedString(@"Acerca de MacDown (original)…", @"")
+        buttonWithTitle:NSLocalizedString(@"About MacDown (original)…", @"")
                  target:NSApp action:@selector(orderFrontStandardAboutPanel:)];
     origBtn.frame = NSMakeRect(24, 16, 260, 32);
     [content addSubview:origBtn];
 
     NSButton *repoBtn = [NSButton
-        buttonWithTitle:NSLocalizedString(@"Repositorio", @"")
+        buttonWithTitle:NSLocalizedString(@"Repository", @"")
                  target:self action:@selector(openRemixRepo:)];
     repoBtn.frame = NSMakeRect(476 - 130, 16, 130, 32);
     [content addSubview:repoBtn];
@@ -335,23 +335,22 @@ NS_INLINE void treat()
             [[NSAttributedString alloc] initWithString:t attributes:a]];
     };
 
-    add(@"Lo mejor de varios mundos de MacDown, en uno.\n\n", headA);
-    add(@"MacDown (Tzu-ping Chung, licencia MIT) dejó de mantenerse en 2023 y ya no "
-        @"compila ni arranca en macOS / Apple Silicon modernos. MacDown Remix lo "
-        @"mantiene vivo y reúne las mejores aportaciones dispersas por sus forks, "
-        @"respetando la licencia y el copyright originales.\n\n", bodyA);
-    add(@"De dónde viene cada cosa\n", headA);
-    add(@"•  Base de código: plateaukao/macdown — el fork activo más reciente con la "
-        @"arquitectura Objective-C original.\n"
-        @"•  Motor de render: cmark-gfm (CommonMark + GFM de GitHub), integrado desde "
-        @"SiggeMcKvack/macdown. AST con posiciones de origen.\n"
-        @"•  Preview WKWebView + scroll sincronizado bidireccional: esta rama.\n"
-        @"•  Anclas de TOC estilo GitHub: Reza Ambler.\n"
-        @"•  Mermaid v11, modos de vista rápidos (⌃⌘1/2/3), plegado de acentos en "
-        @"anclas, fixes de arranque para macOS moderno: comunidad + esta rama.\n\n",
-        bodyA);
-    add(@"El «Acerca de» original de MacDown, con todos sus contribuidores y las "
-        @"licencias de terceros, sigue disponible en el botón de abajo.\n", bodyA);
+    add(@"The best of several MacDown worlds, in one.\n\n", headA);
+    add(@"MacDown (by Tzu-ping Chung, MIT-licensed) has been unmaintained since 2023 "
+        @"and no longer builds or launches on modern macOS / Apple Silicon. MacDown "
+        @"Remix keeps it alive and gathers the best contributions scattered across its "
+        @"forks, while honoring the original license and copyright.\n\n", bodyA);
+    add(@"Where each piece comes from\n", headA);
+    add(@"•  Codebase: plateaukao/macdown — the most recent active fork with the "
+        @"original Objective-C architecture.\n"
+        @"•  Render engine: cmark-gfm (GitHub's CommonMark + GFM), integrated from "
+        @"SiggeMcKvack/macdown. AST with source positions.\n"
+        @"•  WKWebView preview + two-way synced scrolling: this line.\n"
+        @"•  GitHub-style TOC anchors: Reza Ambler.\n"
+        @"•  Mermaid v11, quick view modes (⌃⌘1/2/3), accent-folded anchors, modern "
+        @"macOS launch fixes: the community + this line.\n\n", bodyA);
+    add(@"MacDown's original About box — with all its contributors and third-party "
+        @"licenses — is still available via the button below.\n", bodyA);
     return s;
 }
 
