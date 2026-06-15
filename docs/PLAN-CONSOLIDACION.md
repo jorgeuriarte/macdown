@@ -19,7 +19,7 @@
 | 1 | Infra de la experimental a la par: Sparkle 2/EdDSA (`SPUStandardUpdaterController` + `SUPublicEDKey` + appcast EdDSA) | Bajo | ✅ |
 | 2 | Cherry-picks limpios (no tocan el motor): auto-reload, zoom, modos Light/Dark/Sepia, fix toolbar, **mermaid v11** | Bajo | ✅ |
 | 3 | Dropdown de layout + cambio rápido de modo (⌃⌘1/2/3, ciclo ⌃⌘0) | Medio | ✅ `v0.9-cons.4` — CI verde + verificado en runtime (los 3 modos cambian la geometría del split) |
-| 4 | TOC con anclas: reimplementar en `cmark_gfm_rendering.m` (arregla el TOC roto de la experimental) | Alto | ⏳ siguiente — causa raíz confirmada: `cmark_render_html` no emite `id` en los headings; los enlaces `#toc_N` de la TOC no tienen destino |
+| 4 | TOC con anclas: reimplementar en `cmark_gfm_rendering.m` (arregla el TOC roto de la experimental) | Alto | 🟡 `v0.9-cons.8` — código completo + **CI verde con tests** (slug, plegado de acentos, `toc_N`, mojibake). Pipeline probado end-to-end en runtime en cons.6 (Copy HTML). Falta confirmación **visual** de cons.8 (pantalla bloqueada al validar). Incluye: cherry-pick de Reza (anclas slug), `toc_N` para el macro `[TOC]`, fix de mojibake UTF-8 en el texto del TOC y **plegado de acentos** (decisión de UX, diverge de GitHub) |
 | 5 | Validación: tests + build + abrir y **usar de verdad** → decidir WKWebView según fricción | — | — |
 
 ## Hallazgos clave (de la investigación)
