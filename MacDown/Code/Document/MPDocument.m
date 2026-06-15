@@ -525,7 +525,7 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         }
         @try {
             [self.wkPreview.configuration.userContentController
-                removeScriptMessageHandlerForName:@"macdownScroll"];
+                removeScriptMessageHandlerForName:@"macdown"];
         } @catch (__unused NSException *e) {}
         self.wkPreview.navigationDelegate = nil;
 
@@ -1274,15 +1274,15 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         [config setValue:@YES forKey:@"allowUniversalAccessFromFileURLs"];
     } @catch (__unused NSException *e) {}
 
-    // Puente JS→ObjC: la vista avisa de su scroll para sincronizar el editor
-    // (preview→editor). Es el mecanismo WKScriptMessageHandler que reemplaza al
-    // windowScriptObject legacy (y base del futuro editor inline).
+    // Puente JS→ObjC genérico: un único handler "macdown" enrutado por un campo
+    // "type" en el mensaje. Reemplaza al windowScriptObject legacy y sirve a
+    // cualquier visualizador/plugin (scroll, mathjaxDone, …) y a la futura IA.
     WKUserContentController *ucc = [[WKUserContentController alloc] init];
-    [ucc addScriptMessageHandler:self name:@"macdownScroll"];
+    [ucc addScriptMessageHandler:self name:@"macdown"];
     NSString *scrollJS =
         @"(function(){var t=false;function send(){t=false;"
-        @"if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdownScroll)"
-        @"window.webkit.messageHandlers.macdownScroll.postMessage(window.pageYOffset);}"
+        @"if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
+        @"window.webkit.messageHandlers.macdown.postMessage({type:'scroll',y:window.pageYOffset});}"
         @"window.addEventListener('scroll',function(){if(!t){t=true;"
         @"requestAnimationFrame(send);}},{passive:true});})();";
     [ucc addUserScript:[[WKUserScript alloc] initWithSource:scrollJS
@@ -1297,19 +1297,40 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     self.wkPreview = wk;
 }
 
-#pragma mark - WKScriptMessageHandler (preview→editor scroll)
+#pragma mark - WKScriptMessageHandler (puente genérico macdown)
 
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message
 {
-    if (![message.name isEqualToString:@"macdownScroll"])
+    if (![message.name isEqualToString:@"macdown"])
         return;
-    if (!self.preferences.editorSyncScrolling)
-        return;
-    // Ignora el eco de nuestros propios scrolls editor→preview (anti-bucle).
-    if ([NSDate timeIntervalSinceReferenceDate] < self.suppressPreviewScrollUntil)
-        return;
-    [self syncEditorToPreviewScrollY:[message.body doubleValue]];
+    NSDictionary *body = [message.body isKindOfClass:[NSDictionary class]]
+        ? message.body : nil;
+    NSString *type = body[@"type"];
+
+    if ([type isEqualToString:@"scroll"])
+    {
+        if (!self.preferences.editorSyncScrolling)
+            return;
+        // Ignora el eco de nuestros propios scrolls editor→preview (anti-bucle).
+        if ([NSDate timeIntervalSinceReferenceDate] < self.suppressPreviewScrollUntil)
+            return;
+        [self syncEditorToPreviewScrollY:[body[@"y"] doubleValue]];
+    }
+    else if ([type isEqualToString:@"mathjaxDone"])
+    {
+        // MathJax renderiza async tras cargar la página y cambia el layout, así que
+        // las posiciones cacheadas en didFinishNavigation quedan obsoletas. Al
+        // terminar, se re-cachean y se reposiciona el preview al editor.
+        if (self.preferences.editorSyncScrolling)
+        {
+            self.suppressPreviewScrollUntil =
+                [NSDate timeIntervalSinceReferenceDate] + 0.4;
+            [self updateEditorHeaderLocations];
+            __weak MPDocument *weak = self;
+            [self refreshWKPreviewMetricsThen:^{ [weak syncScrollersWK]; }];
+        }
+    }
 }
 
 // Inversa de syncScrollersWK: dada la Y de scroll de la vista, interpola la
