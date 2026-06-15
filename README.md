@@ -1,3 +1,37 @@
+# MacDown Remix
+
+> Fork de mantenimiento de la comunidad — **lo mejor de varios mundos de MacDown, en uno.**
+
+[MacDown](https://github.com/MacDownApp/macdown), el editor Markdown para macOS de
+[Tzu-ping Chung](https://uranusjr.com) (MIT), lleva sin mantenerse desde 2023 y ya no
+compila ni arranca en macOS / Apple Silicon modernos. **MacDown Remix** lo mantiene vivo
+y reúne las mejores aportaciones dispersas por sus forks, evolucionándolo donde hace falta.
+
+**De dónde bebe** (atribución completa en [`docs/CREDITS.md`](docs/CREDITS.md) y en la
+ventana «Acerca de MacDown Remix» de la app):
+
+| Pieza | Fuente |
+|---|---|
+| Base de código | [plateaukao/macdown](https://github.com/plateaukao/macdown) — el fork activo más reciente con la arquitectura Objective-C original |
+| Motor de render | [cmark-gfm](https://github.com/github/cmark-gfm) (CommonMark + GFM de GitHub), integrado desde [SiggeMcKvack/macdown](https://github.com/SiggeMcKvack/macdown) — AST con posiciones de origen |
+| Preview | Migración a **WKWebView** (WebKit moderno) con scroll sincronizado bidireccional |
+| Anclas de TOC (estilo GitHub) | [Reza Ambler](https://github.com/RezaAmbler/macdown_arm) |
+| Diagramas / modos | Mermaid v11, modos de vista rápidos (⌃⌘1/2/3), fixes de arranque para macOS moderno (comunidad) |
+
+Respeta la **licencia MIT** y el **copyright original** (© 2014–2020 Tzu-ping Chung). No
+sustituye ni suplanta al MacDown oficial: identidad propia (`net.omelas.macdown-remix`) y
+releases propias.
+
+> ⚠️ Trade-off del motor cmark-gfm: se pierden 3 extensiones de hoedown (resaltado `==`,
+> superíndice `^`, subrayado `_`) a cambio del AST moderno que habilita el resto.
+
+El proyecto rastrea periódicamente el ecosistema de forks (original y derivados) para no
+perderse mejoras — ver [`docs/FORKS.md`](docs/FORKS.md) y `claude_tools/track_forks.sh`.
+
+---
+
+A continuación, el **README original de MacDown**:
+
 # MacDown
 
 [![](https://img.shields.io/github/release/MacDownApp/macdown.svg)](http://macdown.uranusjr.com/download/latest/)

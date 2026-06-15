@@ -10,6 +10,9 @@
 # --- Proyecto original (abandonado desde 2023-07) ---
 MacDownApp/macdown
 
+# --- Nuestra propia línea: MacDown Remix (para detectar forks de Remix) ---
+jorgeuriarte/macdown
+
 # --- Nuestra base ---
 plateaukao/macdown
 

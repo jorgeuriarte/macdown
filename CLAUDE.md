@@ -1,22 +1,48 @@
-# CLAUDE.md — MacDown (fork de mantenimiento propio)
+# CLAUDE.md — MacDown Remix (fork de mantenimiento propio)
 
 > Instrucciones específicas de este proyecto. Complementan, no sustituyen, las
 > instrucciones globales de `~/.claude/CLAUDE.md`.
 
 ## 1. Qué es este repositorio
 
-Un **fork de mantenimiento propio de [MacDown](https://github.com/MacDownApp/macdown)**,
-el editor Markdown para macOS. El proyecto original está **abandonado** (último
-commit en julio de 2023) y **no compila ni arranca** en macOS / Apple Silicon
-modernos. Este fork existe para:
+**MacDown Remix** — un **fork de mantenimiento propio de
+[MacDown](https://github.com/MacDownApp/macdown)**, el editor Markdown para macOS de
+Tzu-ping Chung (MIT). El original está **abandonado** (último commit en julio de 2023)
+y **no compila ni arranca** en macOS / Apple Silicon modernos.
+
+La idea del proyecto — y de su nombre — es **reunir lo mejor de varios mundos de
+MacDown en uno**: tomar la base más sana, traer las mejores aportaciones dispersas por
+los forks de la comunidad, y evolucionarlo donde haga falta. Respetando siempre la
+**licencia MIT y el copyright originales** y **sin suplantar** al MacDown oficial
+(identidad propia, releases propias). La atribución de cada pieza vive en
+[`docs/CREDITS.md`](docs/CREDITS.md) y en la ventana propia "Acerca de MacDown Remix".
+
+Objetivos vivos:
 
 - Mantener MacDown **vivo y compilable** en macOS actual (Apple Silicon, Xcode reciente).
-- Incorporar **features útiles** que viven dispersas en los forks de la comunidad.
-- Producir **releases instalables** (binario firmado + auto-update) de forma reproducible.
+- **Reunir y consolidar** las mejores features de los forks, una por una, con build verde.
+- Evolucionar la base hacia un **editor moderno** (motor con AST, preview WebKit moderno;
+  ver [[vision-editor-moderno]] en memoria).
+- Producir **releases instalables** reproducibles.
 
-No es un fork en la "red" de GitHub de MacDownApp: es un **repo independiente**
-(más control, GitHub Actions sin restricciones de fork, releases propias), pero
-mantiene como `remotes` el original y los forks interesantes para hacer cherry-pick.
+No es un fork en la "red" de GitHub de MacDownApp: es un **repo independiente** (más
+control, Actions sin restricciones, releases propias), pero mantiene como `remotes` el
+original y los forks interesantes para hacer cherry-pick.
+
+### Decisión clave (2026-06): colapsar a UNA sola línea — "MacDown Remix"
+
+Tras consolidar features sobre cmark-gfm y validar un spike de WKWebView (render +
+scroll-sync bidireccional), se decide **enterrar la doble línea** (estable hoedown /
+experimental cmark-gfm) y converger en **una única línea: cmark-gfm + WKWebView**, que
+pasa a ser *el* MacDown Remix.
+
+- **Identidad:** nombre **"MacDown Remix"**, bundle id **`net.omelas.macdown-remix`**
+  (no choca con el MacDown estable `net.omelas.macdown`).
+- **Coste asumido:** se pierden 3 extensiones de hoedown (resaltado `==`, superíndice
+  `^`, subrayado `_`). A cambio: AST con `sourcepos` (habilita la edición inline + IA) y
+  WebView moderno.
+- La línea **hoedown + WebView legacy** se **archiva** como tag de referencia
+  (`legacy-hoedown`), no se borra.
 
 ## 2. Objetivos (en orden de prioridad)
 
@@ -31,14 +57,16 @@ mantiene como `remotes` el original y los forks interesantes para hacer cherry-p
 | Decisión | Elección | Por qué |
 |---|---|---|
 | Base de partida | **`plateaukao/macdown`** | El fork activo más reciente que conserva la arquitectura Objective-C original → cherry-picks limpios. Trae Mermaid v11 y mejoras de layout. |
-| Modelo de repo | **Independiente (mirror)**, no fork en la red | Actions completas, releases sin ruido, fuera de la red de 1146 forks. El upstream está muerto: no hay PRs que enviar. |
-| Entorno de build canónico | **GitHub Actions** | El entorno local (macOS 26.x / Xcode 26.x) es demasiado nuevo para el deployment target histórico. CI fija una combinación reproducible. |
-| Integración de features | **Cherry-pick selectivo** desde remotes | Control total sobre qué entra; evita arrastrar rebrands o cambios de licencia. |
+| **Motor de render** | **`cmark-gfm`** (CommonMark + GFM) | AST con `sourcepos` por bloque → habilita la visión inline + IA. Integrado desde `SiggeMcKvack`. Coste: pierde 3 extensiones de hoedown. |
+| **Preview** | **WKWebView** (migración en curso) | El WebView legacy está deprecado (macOS 10.14) y usa APIs privadas. WKWebView = bridge JS↔ObjC moderno (`WKScriptMessageHandler`), base de la edición inline. Spike validado. |
+| Modelo de repo | **Independiente (mirror)**, no fork en la red | Actions completas, releases sin ruido. El upstream está muerto. |
+| Entorno de build canónico | **GitHub Actions** | El entorno local (macOS 26.x / Xcode 26.x) es demasiado nuevo. CI fija una combinación reproducible. Builds de rama suben artefacto descargable. |
+| Integración de features | **Cherry-pick selectivo** desde remotes (con `-x`, preservando autoría) | Control total; evita arrastrar rebrands o cambios de licencia. |
 
-⚠️ **No cambiar estas decisiones sin consenso** (ver instrucciones globales). En
-particular, sustituir el motor de render (hoedown → cmark-gfm, como hace
-`SiggeMcKvack`) es un cambio estructural con riesgo de romper extensiones de
-MacDown (TODO lists, math, footnotes): requiere validación explícita.
+⚠️ **No cambiar estas decisiones sin consenso** (ver instrucciones globales). El motor
+(cmark-gfm) y el preview (WKWebView) ya están **decididos y validados**; lo que queda es
+terminar la migración WK a producción (scheme handler, word-count desde el markdown,
+copy-HTML, impresión, zoom con `magnification`, callback de MathJax).
 
 ## 4. Modelo de git
 
@@ -108,13 +136,22 @@ xcodebuild -workspace MacDown.xcworkspace -scheme MacDown -configuration Release
 
 ## 6. Tracking del ecosistema de forks  ⭐
 
-Cómo mantener actualizada la información de qué hay en cada fork y **detectar
-nuevos forks** (tanto del MacDown original como de las líneas evolucionadas):
+Mantener viva la información de qué hay en cada fork y **detectar nuevos** (tanto del
+MacDown original como de las líneas evolucionadas) es parte del proyecto: el valor de
+"MacDown Remix" es ir recogiendo lo mejor que aparezca por ahí.
+
+**🔁 Rutina periódica (hazla de vez en cuando, p. ej. al empezar un ciclo de trabajo,
+o si el usuario pregunta "¿qué hay de nuevo por los forks?"):**
 
 ```bash
 ./claude_tools/track_forks.sh            # rastrea y reescribe docs/FORKS.md + snapshot
 ./claude_tools/track_forks.sh --dry-run  # solo resumen, no escribe
 ```
+
+Tras ejecutarlo, **revisa la sección de NOVEDADES** al principio de
+[`docs/FORKS.md`](docs/FORKS.md) (forks nuevos y forks con commits nuevos desde el último
+snapshot) y resume al usuario lo que merezca la pena mirar/traer. Si algo interesa, se
+integra por cherry-pick con atribución (ver §4) y se anota en `docs/CREDITS.md`.
 
 Cómo funciona:
 
