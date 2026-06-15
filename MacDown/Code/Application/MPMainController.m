@@ -112,9 +112,12 @@ NS_INLINE void treat()
         @"extensionFootnotes": @YES,
         @"extensionSmartyPants": @YES,
         @"htmlTaskList": @YES,
-        // Build "MacDown WK" (spike): preview con WKWebView por defecto. Tiene
-        // bundle ID propio (net.omelas.macdown-wk), así no afecta a cmark-gfm.
+        // MacDown Remix (net.omelas.macdown-remix): preview con WKWebView, más
+        // resaltado de sintaxis y scroll sincronizado activados de fábrica — un
+        // editor moderno debería traerlos puestos.
         @"experimentalWKWebView": @YES,
+        @"htmlSyntaxHighlighting": @YES,
+        @"editorSyncScrolling": @YES,
     }];
 
     // Using private API [WebCache setDisabled:YES] to disable WebView's cache
