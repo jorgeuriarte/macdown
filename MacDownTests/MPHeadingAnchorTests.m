@@ -194,6 +194,14 @@
 - (MPCodeBlockAccessoryType)rendererCodeBlockAccesory:(MPRenderer *)r
 { return MPCodeBlockAccessoryNone; }
 - (BOOL)rendererHasMathJax:(MPRenderer *)r { return NO; }
+// cmark-gfm line: extra MPRendererDelegate methods the engine requires.
+- (BOOL)rendererHasHardWrap:(MPRenderer *)r { return NO; }
+- (BOOL)rendererHasFootnotes:(MPRenderer *)r { return NO; }
+- (NSString *)rendererHighlightingThemeName:(MPRenderer *)r { return nil; }
+- (void)renderer:(MPRenderer *)r didProduceHTMLOutput:(NSString *)html {}
+- (NSArray<NSString *> *)rendererCmarkExtensions:(MPRenderer *)r { return @[]; }
+- (MPCmarkRenderFlags)rendererCmarkRenderFlags:(MPRenderer *)r
+{ return MPCmarkRenderFlagNone; }
 @end
 
 @interface MPRenderer (Testing)
