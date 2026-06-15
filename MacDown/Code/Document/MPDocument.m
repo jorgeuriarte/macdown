@@ -508,6 +508,15 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         self.preview.frameLoadDelegate = nil;
         self.preview.policyDelegate = nil;
 
+        // Spike WKWebView: limpiar el HTML temporal y soltar el delegado.
+        if (self.wkPreviewTempURL)
+        {
+            [[NSFileManager defaultManager] removeItemAtURL:self.wkPreviewTempURL
+                                                      error:NULL];
+            self.wkPreviewTempURL = nil;
+        }
+        self.wkPreview.navigationDelegate = nil;
+
         [[NSNotificationCenter defaultCenter] removeObserver:self];
 
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -1263,11 +1272,18 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         return;
 
     // WKWebView no carga subrecursos file:// con loadHTMLString:baseURL:. Se
-    // escribe el HTML a un fichero temporal y se carga con loadFileURL: dando
-    // lectura a "/" para que resuelvan los recursos absolutos del bundle. (En la
-    // migración real esto será un WKURLSchemeHandler, sin tocar el disco.)
-    NSURL *dir = (baseUrl.isFileURL ? baseUrl
-                  : [NSURL fileURLWithPath:NSTemporaryDirectory()]);
+    // escribe el HTML a un fichero temporal en el directorio del documento (para
+    // que resuelvan las rutas relativas del doc) y se carga con loadFileURL:
+    // dando lectura a "/" para que resuelvan también los recursos absolutos del
+    // bundle. (En la migración real esto será un WKURLSchemeHandler, sin disco.)
+    NSURL *dir;
+    if (baseUrl.isFileURL)
+        // baseUrl es el fichero .md en docs guardados, o ya un directorio en
+        // documentos sin guardar.
+        dir = (baseUrl.hasDirectoryPath ? baseUrl
+               : [baseUrl URLByDeletingLastPathComponent]);
+    else
+        dir = [NSURL fileURLWithPath:NSTemporaryDirectory()];
     NSURL *tempURL = [dir URLByAppendingPathComponent:@".macdown-wk-preview.html"];
     NSError *err = nil;
     if (![html writeToURL:tempURL atomically:YES
