@@ -245,7 +245,7 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 - (void)setupWKPreviewIfNeeded;
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
 - (void)updateEditorHeaderLocations;        // mitad "editor" de updateHeaderLocations
-- (void)refreshWKPreviewMetricsAsync;       // lee posiciones del preview (async)
+- (void)refreshWKPreviewMetricsThen:(void (^)(void))then;  // lee posiciones (async)
 - (void)syncScrollersWK;
 - (void)syncEditorToPreviewScrollY:(CGFloat)previewY;
 
@@ -1420,11 +1420,17 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     // Re-aplica el zoom del preview tras cargar el HTML nuevo.
     [self scaleWebview];
 
-    // Calienta la caché de posiciones para que el scroll-sync no empiece en frío.
     if (self.preferences.editorSyncScrolling)
     {
+        // Al recargar, el preview WK vuelve al tope. Reposiciónalo a la posición
+        // del editor (cuando lleguen las métricas) para que NO salte arriba en cada
+        // tecla, y suprime el preview→editor mientras se reasienta (si no, ese
+        // salto arrastraría el editor: "no estoy donde creo estar").
+        self.suppressPreviewScrollUntil =
+            [NSDate timeIntervalSinceReferenceDate] + 0.6;
         [self updateEditorHeaderLocations];
-        [self refreshWKPreviewMetricsAsync];
+        __weak MPDocument *weak = self;
+        [self refreshWKPreviewMetricsThen:^{ [weak syncScrollersWK]; }];
     }
 }
 
@@ -2187,7 +2193,7 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         // leen de forma asíncrona (no hay DOM síncrono). Se cachean y syncScrollers
         // usa la caché por-frame (el contenido no se reflota durante un scroll).
         [self updateEditorHeaderLocations];
-        [self refreshWKPreviewMetricsAsync];
+        [self refreshWKPreviewMetricsThen:nil];
         return;
     }
 
@@ -2342,7 +2348,7 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 // Lee de forma asíncrona las posiciones Y absolutas de los encabezados del preview
 // WK más el alto de contenido y de viewport, y las cachea. WKWebView devuelve los
 // objetos/arrays JS como NSDictionary/NSArray, así que no hace falta parsear JSON.
-- (void)refreshWKPreviewMetricsAsync
+- (void)refreshWKPreviewMetricsThen:(void (^)(void))then
 {
     if (!self.wkPreview)
         return;
@@ -2352,16 +2358,17 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         @"return {ys:ys,content:(document.body?document.body.scrollHeight:0),visible:window.innerHeight};})()";
     __weak MPDocument *weak = self;
     [self.wkPreview evaluateJavaScript:js completionHandler:^(id result, NSError *err) {
-        if (![result isKindOfClass:[NSDictionary class]])
-            return;
         MPDocument *strong = weak;
-        if (!strong)
-            return;
-        NSArray *ys = result[@"ys"];
-        if ([ys isKindOfClass:[NSArray class]])
-            strong->_webViewHeaderLocations = ys;
-        strong.wkPreviewContentHeight = [result[@"content"] doubleValue];
-        strong.wkPreviewVisibleHeight = [result[@"visible"] doubleValue];
+        if ([result isKindOfClass:[NSDictionary class]] && strong)
+        {
+            NSArray *ys = result[@"ys"];
+            if ([ys isKindOfClass:[NSArray class]])
+                strong->_webViewHeaderLocations = ys;
+            strong.wkPreviewContentHeight = [result[@"content"] doubleValue];
+            strong.wkPreviewVisibleHeight = [result[@"visible"] doubleValue];
+        }
+        if (then)
+            then();
     }];
 }
 
