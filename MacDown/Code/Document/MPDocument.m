@@ -692,6 +692,11 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     NSPrintInfo *info = [self.printInfo copy];
     [info.dictionary addEntriesFromDictionary:printSettings];
 
+    // WKWebView tiene su propia operación de impresión (macOS 11+); el preview
+    // legacy está vacío en modo WK, así que imprimiría/exportaría en blanco.
+    if (self.usesWKWebView)
+        return [self.wkPreview printOperationWithPrintInfo:info];
+
     WebFrameView *view = self.preview.mainFrame.frameView;
     NSPrintOperation *op = [view printOperationWithPrintInfo:info];
     return op;
@@ -1411,6 +1416,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
     if (self.preferences.editorShowWordCount)
         [self updateWordCount];
+
+    // Re-aplica el zoom del preview tras cargar el HTML nuevo.
+    [self scaleWebview];
 
     // Calienta la caché de posiciones para que el scroll-sync no empiece en frío.
     if (self.preferences.editorSyncScrolling)
@@ -2155,19 +2163,20 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
     static const CGFloat defaultSize = 14.0;
     CGFloat scale = fontSize / defaultSize;
-    
-#if 0
-    // Sadly, this doesn’t work correctly.
-    // It looks fine, but selections are offset relative to the mouse cursor.
-    NSScrollView *previewScrollView =
-    self.preview.mainFrame.frameView.documentView.enclosingScrollView;
-    NSClipView *previewContentView = previewScrollView.contentView;
-    [previewContentView scaleUnitSquareToSize:NSMakeSize(scale, scale)];
-    [previewContentView setNeedsDisplay:YES];
-#else
-    // Warning: this is private webkit API and NOT App Store-safe!
+
+    if (self.usesWKWebView)
+    {
+        // WKWebView: zoom CSS sobre el documento. Reflota como el legacy (a
+        // diferencia de magnification, que solo amplía visualmente) y se queda en
+        // el mismo sistema de coordenadas que usa el scroll-sync.
+        NSString *js = [NSString stringWithFormat:
+            @"document.documentElement.style.zoom='%.4f';", (double)scale];
+        [self.wkPreview evaluateJavaScript:js completionHandler:nil];
+        return;
+    }
+
+    // Legacy WebView: API privada, NO App-Store-safe.
     [self.preview setPageSizeMultiplier:scale];
-#endif
 }
 
 -(void) updateHeaderLocations
