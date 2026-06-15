@@ -130,6 +130,18 @@
     XCTAssertEqualObjects([MPRenderer HTMLByAddingHeadingAnchors:@""], @"");
 }
 
+#pragma mark - Generated [TOC] list text (UTF-8)
+
+- (void)testGeneratedTOCPreservesAccentedUTF8
+{
+    // Regression: the TOC link text was built with %s, which decoded cmark's
+    // UTF-8 bytes as Mac Roman and mangled accents ("Instalación" → "Instalaci√≥n").
+    NSString *toc = MPCmarkGFMGenerateTOC(@"# Instalación\n\n## Año Nuevo\n", @[], 0, 6);
+    XCTAssertTrue([toc containsString:@"Instalación"], @"TOC text mangled: %@", toc);
+    XCTAssertTrue([toc containsString:@"Año Nuevo"], @"TOC text mangled: %@", toc);
+    XCTAssertFalse([toc containsString:@"√"], @"TOC has mojibake: %@", toc);
+}
+
 #pragma mark - [TOC] macro id="toc_N" injection
 
 - (void)testTOCIDInjectedOnSingleHeading

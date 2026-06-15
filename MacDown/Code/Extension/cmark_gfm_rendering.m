@@ -354,7 +354,11 @@ NSString *MPCmarkGFMGenerateTOC(
                 cmark_node_get_literal(child);
             if (literal)
             {
-                [content appendFormat:@"%s", literal];
+                // cmark returns UTF-8; %s would decode it as the default C
+                // string encoding (Mac Roman) and mangle accents. Decode UTF-8.
+                NSString *s = [NSString stringWithUTF8String:literal];
+                if (s)
+                    [content appendString:s];
             }
             else
             {
@@ -364,7 +368,9 @@ NSString *MPCmarkGFMGenerateTOC(
                     child, CMARK_OPT_DEFAULT, NULL);
                 if (rendered)
                 {
-                    [content appendFormat:@"%s", rendered];
+                    NSString *s = [NSString stringWithUTF8String:rendered];
+                    if (s)
+                        [content appendString:s];
                     free(rendered);
                 }
             }
