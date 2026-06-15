@@ -66,6 +66,22 @@
                           @"configyml--env");
 }
 
+- (void)testSlugFoldsAccentsToASCII
+{
+    // Deliberate divergence from GitHub: accents are folded so hand-written
+    // anchors don't need diacritics.
+    XCTAssertEqualObjects([MPRenderer anchorSlugForHeadingText:@"Instalación"],
+                          @"instalacion");
+    XCTAssertEqualObjects([MPRenderer anchorSlugForHeadingText:@"Año Nuevo"],
+                          @"ano-nuevo");
+    XCTAssertEqualObjects(
+        [MPRenderer anchorSlugForHeadingText:@"Autenticación & Autorización"],
+        @"autenticacion--autorizacion");
+    XCTAssertEqualObjects(
+        [MPRenderer anchorSlugForHeadingText:@"Integración de dispositivos (Adapters)"],
+        @"integracion-de-dispositivos-adapters");
+}
+
 #pragma mark - Anchor injection
 
 - (void)testAddsAnchorInsideHeading

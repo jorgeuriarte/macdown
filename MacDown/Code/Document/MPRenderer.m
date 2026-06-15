@@ -672,11 +672,19 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
 
 + (NSString *)anchorSlugForHeadingText:(NSString *)text
 {
-    // GitHub-compatible slug: lowercase, keep letters/digits/'-'/'_', turn
+    // Slug: fold accents to ASCII, lowercase, keep letters/digits/'-'/'_', turn
     // spaces into hyphens, drop everything else. e.g.
-    //   "1. Product Overview"            -> "1-product-overview"
+    //   "1. Product Overview"               -> "1-product-overview"
     //   "6. Authentication & Authorization" -> "6-authentication--authorization"
-    NSString *lower = [text lowercaseString];
+    //   "Instalación"                       -> "instalacion"
+    //   "Año Nuevo"                         -> "ano-nuevo"
+    // Note: accent folding diverges from GitHub/hoedown (which keep accents) by
+    // deliberate choice on the cmark-gfm line — hand-written anchors are easier
+    // to type without diacritics.
+    NSLocale *posix = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    NSString *folded = [text stringByFoldingWithOptions:NSDiacriticInsensitiveSearch
+                                                 locale:posix];
+    NSString *lower = [folded lowercaseString];
     NSCharacterSet *alnum = [NSCharacterSet alphanumericCharacterSet];
     NSMutableString *slug = [NSMutableString stringWithCapacity:lower.length];
     [lower enumerateSubstringsInRange:NSMakeRange(0, lower.length)
