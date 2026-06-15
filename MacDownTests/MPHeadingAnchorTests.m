@@ -10,6 +10,13 @@
 #import "MPRenderer.h"
 
 
+// HTMLByAddingTOCHeadingIDs: is internal to MPRenderer.m (cmark-gfm line);
+// expose it for testing the [TOC] macro's id="toc_N" injection.
+@interface MPRenderer (TOCHeadingIDTesting)
++ (NSString *)HTMLByAddingTOCHeadingIDs:(NSString *)html;
+@end
+
+
 @interface MPHeadingAnchorTests : XCTestCase
 @end
 
@@ -121,6 +128,45 @@
 - (void)testHandlesEmptyAndNil
 {
     XCTAssertEqualObjects([MPRenderer HTMLByAddingHeadingAnchors:@""], @"");
+}
+
+#pragma mark - [TOC] macro id="toc_N" injection
+
+- (void)testTOCIDInjectedOnSingleHeading
+{
+    NSString *html = @"<h2>Title</h2>";
+    XCTAssertEqualObjects([MPRenderer HTMLByAddingTOCHeadingIDs:html],
+                          @"<h2 id=\"toc_0\">Title</h2>");
+}
+
+- (void)testTOCIDsNumberedInDocumentOrderAcrossLevels
+{
+    NSString *html = @"<h1>A</h1>\n<h3>B</h3>\n<h2>C</h2>";
+    NSString *out = [MPRenderer HTMLByAddingTOCHeadingIDs:html];
+    XCTAssertEqualObjects(out,
+        @"<h1 id=\"toc_0\">A</h1>\n<h3 id=\"toc_1\">B</h3>\n<h2 id=\"toc_2\">C</h2>");
+}
+
+- (void)testTOCIDsMatchGeneratedTOCLinks
+{
+    // The [TOC] generator emits href="#toc_0", "#toc_1", … in document order;
+    // the injected ids must line up one-to-one.
+    NSString *html = @"<h2>First</h2><h2>Second</h2><h2>Third</h2>";
+    NSString *out = [MPRenderer HTMLByAddingTOCHeadingIDs:html];
+    XCTAssertTrue([out containsString:@"<h2 id=\"toc_0\">First</h2>"]);
+    XCTAssertTrue([out containsString:@"<h2 id=\"toc_1\">Second</h2>"]);
+    XCTAssertTrue([out containsString:@"<h2 id=\"toc_2\">Third</h2>"]);
+}
+
+- (void)testTOCIDLeavesNonHeadingContentUntouched
+{
+    NSString *html = @"<p>A paragraph with <a href=\"#x\">a link</a>.</p>";
+    XCTAssertEqualObjects([MPRenderer HTMLByAddingTOCHeadingIDs:html], html);
+}
+
+- (void)testTOCIDHandlesEmpty
+{
+    XCTAssertEqualObjects([MPRenderer HTMLByAddingTOCHeadingIDs:@""], @"");
 }
 
 @end

@@ -92,6 +92,12 @@ NS_INLINE NSArray *MPPrismScriptURLsForLanguage(NSString *language)
     return urls;
 }
 
+// Defined further down; forward-declared here because MPHTMLFromMarkdown (below)
+// calls it before its definition. Internal — not exposed in the header.
+@interface MPRenderer ()
++ (NSString *)HTMLByAddingTOCHeadingIDs:(NSString *)html;
+@end
+
 NS_INLINE NSString *MPHTMLFromMarkdown(
     NSString *text, NSArray<NSString *> *extensions, int options,
     MPCmarkRenderFlags renderFlags, BOOL hasTOC, NSString *frontMatter,
@@ -122,6 +128,10 @@ NS_INLINE NSString *MPHTMLFromMarkdown(
         result = [tocRegex
             stringByReplacingMatchesInString:result options:0
             range:replaceRange withTemplate:toc];
+
+        // The [TOC] macro emits "#toc_N" links; cmark-gfm renders headings
+        // without ids, so give each heading its matching id="toc_N".
+        result = [MPRenderer HTMLByAddingTOCHeadingIDs:result];
     }
 
     // Give headings GitHub-style id anchors so in-document TOC links resolve.
@@ -756,6 +766,45 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     for (NSInteger i = locations.count - 1; i >= 0; i--)
         [out insertString:anchors[i]
                   atIndex:locations[i].unsignedIntegerValue];
+    return [out copy];
+}
+
+// Injects id="toc_N" into each heading in document order so the auto [TOC] macro's
+// "#toc_N" links resolve. cmark-gfm (unlike hoedown) renders headings as a bare
+// "<hN>" with no id, so its [TOC] was dead; this mirrors hoedown's behaviour. The
+// numbering is positional and matches MPCmarkGFMGenerateTOC, which counts every
+// h1..h6 in the same document order (kMPRendererTOCLevel == 6, so none are skipped).
+// Runs before HTMLByAddingHeadingAnchors: so the slug anchor is added inside, keeping
+// id="toc_N" on the <hN> intact (same layout hoedown produces on the stable line).
++ (NSString *)HTMLByAddingTOCHeadingIDs:(NSString *)html
+{
+    if (!html.length)
+        return html;
+
+    static NSRegularExpression *headingOpenRegex = nil;
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        // cmark-gfm emits headings as "<hN>" with no attributes.
+        headingOpenRegex = [[NSRegularExpression alloc]
+            initWithPattern:@"<h([1-6])>" options:0 error:NULL];
+    });
+
+    NSArray<NSTextCheckingResult *> *matches =
+        [headingOpenRegex matchesInString:html options:0
+                                    range:NSMakeRange(0, html.length)];
+    if (!matches.count)
+        return html;
+
+    // Replace in reverse so earlier offsets stay valid; the toc index is the
+    // forward position of the match (matches come in document order).
+    NSMutableString *out = [html mutableCopy];
+    for (NSInteger i = matches.count - 1; i >= 0; i--)
+    {
+        NSTextCheckingResult *match = matches[i];
+        NSString *level = [html substringWithRange:[match rangeAtIndex:1]];
+        [out replaceCharactersInRange:[match range] withString:
+            [NSString stringWithFormat:@"<h%@ id=\"toc_%ld\">", level, (long)i]];
+    }
     return [out copy];
 }
 
