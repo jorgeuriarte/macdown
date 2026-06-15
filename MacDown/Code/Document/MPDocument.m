@@ -241,6 +241,7 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 @property CGFloat wkPreviewContentHeight;   // alto total del contenido (px CSS)
 @property CGFloat wkPreviewVisibleHeight;   // alto visible del viewport (px CSS)
 @property NSTimeInterval suppressPreviewScrollUntil;  // anti-bucle editor↔preview
+@property (copy) NSString *wkPreviewID;     // id único del temporal por documento
 - (BOOL)usesWKWebView;
 - (void)setupWKPreviewIfNeeded;
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
@@ -1418,13 +1419,19 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
                : [baseUrl URLByDeletingLastPathComponent]);
     else
         dir = [NSURL fileURLWithPath:NSTemporaryDirectory()];
-    NSURL *tempURL = [dir URLByAppendingPathComponent:@".macdown-wk-preview.html"];
+    // Nombre ÚNICO por documento: si no, dos docs del mismo directorio escriben el
+    // mismo fichero y se pisan (el preview mostraba el otro doc hasta un Cmd+R).
+    if (!self.wkPreviewID)
+        self.wkPreviewID = [[NSUUID UUID] UUIDString];
+    NSString *name = [NSString stringWithFormat:@".macdown-wk-preview-%@.html",
+                      self.wkPreviewID];
+    NSURL *tempURL = [dir URLByAppendingPathComponent:name];
     NSError *err = nil;
     if (![html writeToURL:tempURL atomically:YES
                  encoding:NSUTF8StringEncoding error:&err])
     {
         tempURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()]
-                   URLByAppendingPathComponent:@".macdown-wk-preview.html"];
+                   URLByAppendingPathComponent:name];
         [html writeToURL:tempURL atomically:YES
                 encoding:NSUTF8StringEncoding error:NULL];
     }
