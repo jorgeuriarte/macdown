@@ -1409,6 +1409,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         [self.renderer parseAndRenderNow];
     self.renderToWebPending = NO;
 
+    if (self.preferences.editorShowWordCount)
+        [self updateWordCount];
+
     // Calienta la caché de posiciones para que el scroll-sync no empiece en frío.
     if (self.preferences.editorSyncScrolling)
     {
@@ -2461,11 +2464,57 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 - (void)updateWordCount
 {
-    DOMNodeTextCount count = self.preview.mainFrame.DOMDocument.textCount;
+    // Cuenta la prosa renderizada desde renderer.currentHtml (disponible en ambos
+    // motores) en vez del DOM del WebView legacy — que en modo WKWebView está
+    // vacío. Quita código/scripts/estilos, las etiquetas y decodifica entidades.
+    NSString *html = self.renderer.currentHtml ?: @"";
 
-    self.totalWords = count.words;
-    self.totalCharacters = count.characters;
-    self.totalCharactersNoSpaces = count.characterWithoutSpaces;
+    static NSRegularExpression *blockRe = nil, *tagRe = nil, *wsRe = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSRegularExpressionOptions o = NSRegularExpressionCaseInsensitive
+            | NSRegularExpressionDotMatchesLineSeparators;
+        // Bloques que no cuentan como prosa: código, scripts, estilos, head.
+        blockRe = [NSRegularExpression regularExpressionWithPattern:
+            @"<(script|style|pre|head)\\b[^>]*>.*?</\\1>" options:o error:NULL];
+        tagRe = [NSRegularExpression regularExpressionWithPattern:@"<[^>]+>"
+            options:0 error:NULL];
+        wsRe = [NSRegularExpression regularExpressionWithPattern:@"\\s+"
+            options:0 error:NULL];
+    });
+
+    NSMutableString *text = [html mutableCopy];
+    NSRange all = NSMakeRange(0, text.length);
+    [blockRe replaceMatchesInString:text options:0 range:all withTemplate:@" "];
+    all = NSMakeRange(0, text.length);
+    [tagRe replaceMatchesInString:text options:0 range:all withTemplate:@" "];
+
+    NSString *plain = text;
+    // Entidades más comunes; &amp; al final para no romper "&amp;lt;".
+    NSArray<NSArray<NSString *> *> *ents = @[
+        @[@"&nbsp;", @" "], @[@"&lt;", @"<"], @[@"&gt;", @">"],
+        @[@"&quot;", @"\""], @[@"&#39;", @"'"], @[@"&apos;", @"'"],
+        @[@"&amp;", @"&"]];
+    for (NSArray<NSString *> *e in ents)
+        plain = [plain stringByReplacingOccurrencesOfString:e[0] withString:e[1]];
+
+    // Normaliza espacios (runs → 1) y recorta.
+    plain = [wsRe stringByReplacingMatchesInString:plain options:0
+        range:NSMakeRange(0, plain.length) withTemplate:@" "];
+    plain = [plain stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    NSUInteger words = 0;
+    for (NSString *p in [plain componentsSeparatedByString:@" "])
+        if (p.length)
+            words++;
+    NSString *noSpaces = [[plain componentsSeparatedByCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]]
+        componentsJoinedByString:@""];
+
+    self.totalWords = (plain.length ? words : 0);
+    self.totalCharacters = plain.length;
+    self.totalCharactersNoSpaces = noSpaces.length;
 
     if (self.isPreviewReady)
         self.wordCountWidget.enabled = YES;
