@@ -87,3 +87,31 @@
 - Aplicar Sparkle 2/EdDSA también a la rama experimental (su canal beta).
 - Features pendientes en `docs/CREDITS.md` (export DOCX/PPTX de nyimbi, Quick Look de treehouse).
 - Firmar/notarizar releases (Developer ID) para evitar el bloqueo de Gatekeeper.
+
+## 2026-06-15 — Consolidación sobre cmark-gfm: paso 3 (modos de vista)
+
+### Qué se hizo
+- **Paso 3 del plan de consolidación** portado a `feature/consolidate-on-cmark-gfm`:
+  dropdown de layout en la toolbar + cambio rápido de modo de vista
+  (⌃⌘1 Editor+Vista, ⌃⌘2 solo Editor, ⌃⌘3 solo Vista, ciclo ⌃⌘0).
+- Cherry-picks con atribución (`-x`): `2016de9` (modos directos + ciclo) y
+  `2b6b36b` (dropdown selectivo que oculta el modo actual).
+- Release experimental **`v0.9-cons.4`** (build 57, arm64): CI verde con tests.
+
+### Decisiones tomadas
+- La experimental **no traía el enum `MPDefaultLayout` ni `applyDefaultLayout`**
+  (infra de plateaukao). Reimplementé `applyLayoutMode:` autocontenido sobre las
+  primitivas que sí existen (`setSplitViewDividerLocation:`, `previousSplitRatio`,
+  `editorOnRight`, `editorVisible/previewVisible`). Semántica idéntica a la estable.
+
+### Verificación (no solo "compila")
+- CI: `xcodebuild test` + compilación arm64 + DMG/ZIP + pre-release + appcast-beta.
+- Runtime (instalada vía `gh`, sin cuarentena): la app arranca, el menú "Ver"
+  muestra los 4 ítems, y al ciclar la **geometría del split cambia de verdad**:
+  Editor Only `1329px` → Preview Only `1329px` (lado opuesto) → Both `664+664`.
+
+### Hallazgo para el paso 4 (TOC)
+- Causa raíz del "índice perdido" confirmada: `MPCmarkGFMToHTML` usa
+  `cmark_render_html` crudo, que **emite los headings sin `id`**; la TOC genera
+  enlaces `#toc_N` que no tienen destino → navegación muerta. Fix previsto:
+  post-proceso que inyecte `id="toc_N"` en orden (como `MPPostProcessCodeBlocks`).
