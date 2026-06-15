@@ -177,6 +177,7 @@ NS_INLINE NSColor *MPGetWebViewBackgroundColor(WebView *webview)
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101100
      WebEditingDelegate, WebFrameLoadDelegate, WebPolicyDelegate, WebResourceLoadDelegate,
 #endif
+     WKNavigationDelegate,
      MPAutosaving, MPRendererDataSource, MPRendererDelegate>
 
 typedef NS_ENUM(NSUInteger, MPWordCountType) {
@@ -232,6 +233,14 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 - (void)scaleWebview;
 - (void)syncScrollers;
 -(void) updateHeaderLocations;
+
+// Spike experimental: preview alternativo con WKWebView, detrás del flag
+// NSUserDefaults @"experimentalWKWebView". La WebView legacy sigue intacta.
+@property (strong) WKWebView *wkPreview;
+@property (copy) NSURL *wkPreviewTempURL;
+- (BOOL)usesWKWebView;
+- (void)setupWKPreviewIfNeeded;
+- (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
 
 @end
 
@@ -1207,8 +1216,96 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 #endif
 
     // Reload the page if there's not valid tree to work with.
-    [self.preview.mainFrame loadHTMLString:html baseURL:baseUrl];
+    if (self.usesWKWebView)
+        [self loadHTMLInWKWebView:html baseURL:baseUrl];
+    else
+        [self.preview.mainFrame loadHTMLString:html baseURL:baseUrl];
     self.currentBaseUrl = baseUrl;
+}
+
+
+#pragma mark - WKWebView (spike experimental)
+
+- (BOOL)usesWKWebView
+{
+    return [[NSUserDefaults standardUserDefaults]
+            boolForKey:@"experimentalWKWebView"];
+}
+
+// Crea la WKWebView como subview del preview legacy (que sigue siendo el arranged
+// subview del split view → no rompe el divisor). La legacy queda detrás, vacía.
+- (void)setupWKPreviewIfNeeded
+{
+    if (!self.usesWKWebView || self.wkPreview || !self.preview)
+        return;
+
+    WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    // Permitir que el HTML local cargue recursos file:// (bundle + doc) y que
+    // mermaid/MathJax hagan XHR a file://. KVC sobre prefs no documentadas:
+    // aceptable en un spike; la migración real usará un WKURLSchemeHandler.
+    @try {
+        [config.preferences setValue:@YES forKey:@"allowFileAccessFromFileURLs"];
+        [config setValue:@YES forKey:@"allowUniversalAccessFromFileURLs"];
+    } @catch (__unused NSException *e) {}
+
+    WKWebView *wk = [[WKWebView alloc] initWithFrame:self.preview.bounds
+                                       configuration:config];
+    wk.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    wk.navigationDelegate = self;
+    [self.preview addSubview:wk];
+    self.wkPreview = wk;
+}
+
+- (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl
+{
+    [self setupWKPreviewIfNeeded];
+    if (!self.wkPreview)
+        return;
+
+    // WKWebView no carga subrecursos file:// con loadHTMLString:baseURL:. Se
+    // escribe el HTML a un fichero temporal y se carga con loadFileURL: dando
+    // lectura a "/" para que resuelvan los recursos absolutos del bundle. (En la
+    // migración real esto será un WKURLSchemeHandler, sin tocar el disco.)
+    NSURL *dir = (baseUrl.isFileURL ? baseUrl
+                  : [NSURL fileURLWithPath:NSTemporaryDirectory()]);
+    NSURL *tempURL = [dir URLByAppendingPathComponent:@".macdown-wk-preview.html"];
+    NSError *err = nil;
+    if (![html writeToURL:tempURL atomically:YES
+                 encoding:NSUTF8StringEncoding error:&err])
+    {
+        tempURL = [[NSURL fileURLWithPath:NSTemporaryDirectory()]
+                   URLByAppendingPathComponent:@".macdown-wk-preview.html"];
+        [html writeToURL:tempURL atomically:YES
+                encoding:NSUTF8StringEncoding error:NULL];
+    }
+    self.wkPreviewTempURL = tempURL;
+    [self.wkPreview loadFileURL:tempURL
+        allowingReadAccessToURL:[NSURL fileURLWithPath:@"/"]];
+}
+
+- (void)webView:(WKWebView *)webView
+        didFinishNavigation:(WKNavigation *)navigation
+{
+    self.isPreviewReady = YES;
+    self.alreadyRenderingInWeb = NO;
+    if (self.renderToWebPending)
+        [self.renderer parseAndRenderNow];
+    self.renderToWebPending = NO;
+}
+
+- (void)webView:(WKWebView *)webView
+        didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+    self.alreadyRenderingInWeb = NO;
+    self.renderToWebPending = NO;
+}
+
+- (void)webView:(WKWebView *)webView
+        didFailProvisionalNavigation:(WKNavigation *)navigation
+        withError:(NSError *)error
+{
+    self.alreadyRenderingInWeb = NO;
+    self.renderToWebPending = NO;
 }
 
 

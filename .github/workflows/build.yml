@@ -7,7 +7,7 @@ name: Build (experimental cmark-gfm)
 #   git tag v0.9-cmark.1 && git push origin v0.9-cmark.1
 on:
   push:
-    branches: [ experiment/cmark-gfm, feature/consolidate-on-cmark-gfm ]
+    branches: [ experiment/cmark-gfm, feature/consolidate-on-cmark-gfm, experiment/wkwebview ]
     tags: [ 'v*-*' ]          # tags con guion => canal experimental
   workflow_dispatch:
 
