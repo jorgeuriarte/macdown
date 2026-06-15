@@ -79,5 +79,18 @@ scroll-sync se siente mal → se decide con datos (mantener legacy, o async + tw
 ## Estado
 
 - [x] Evaluación / mapa de superficie (este documento)
-- [ ] Spike `experiment/wkwebview` (pendiente de luz verde sobre el enfoque)
+- [x] **Hito A** — WKWebView en paralelo renderiza el HTML con recursos del bundle
+  - Rama `experiment/wkwebview`, build **"MacDown WK"** (bundle id propio
+    `net.omelas.macdown-wk`, WK por defecto → corre junto a cmark-gfm sin
+    contaminar sus preferencias).
+  - CI verde (compila + tests). Verificado headless: la ruta WK corre (escribe el
+    HTML temporal y `loadFileURL:`), WKWebView activo (proceso `WebContent`), sin
+    crash, recursos `file://` absolutos. **Render visual pendiente de validar.**
+  - Implementación: `setupWKPreviewIfNeeded`, `loadHTMLInWKWebView:baseURL:`,
+    `webView:didFinishNavigation:` en `MPDocument.m`.
+  - Limitación conocida del spike: el HTML temporal cae en `NSTemporaryDirectory`
+    en algunos casos → las imágenes **relativas** del doc pueden no cargar (las
+    absolutas y las del bundle sí). La migración real usará `WKURLSchemeHandler`.
+- [ ] **Hito B** — callback de MathJax vía `WKScriptMessageHandler`
+- [ ] **Hito C** — scroll-sync async y **medir la sensación** (el riesgo real)
 - [ ] Decisión: migración completa vs. mantener legacy
