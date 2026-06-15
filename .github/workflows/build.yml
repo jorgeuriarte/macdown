@@ -82,11 +82,11 @@ jobs:
           APP="build/Build/Products/Release/MacDown.app"
           if [ ! -d "$APP" ]; then echo "::error::No se generó $APP"; exit 1; fi
           # Renombrar el bundle para que conviva con la estable (MacDown.app) en /Applications.
-          APP_DIST="build/Build/Products/Release/MacDown cmark-gfm.app"
+          APP_DIST="build/Build/Products/Release/MacDown WK.app"
           mv "$APP" "$APP_DIST"
           mkdir -p dist
           ditto -c -k --keepParent "$APP_DIST" "dist/MacDown.zip"
-          hdiutil create -volname "MacDown cmark-gfm" -srcfolder "$APP_DIST" -ov -format UDZO "dist/MacDown.dmg"
+          hdiutil create -volname "MacDown WK" -srcfolder "$APP_DIST" -ov -format UDZO "dist/MacDown.dmg"
           lipo -info "$APP_DIST/Contents/MacOS/MacDown" || true
           ls -la dist
 

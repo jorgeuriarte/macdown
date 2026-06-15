@@ -112,6 +112,9 @@ NS_INLINE void treat()
         @"extensionFootnotes": @YES,
         @"extensionSmartyPants": @YES,
         @"htmlTaskList": @YES,
+        // Build "MacDown WK" (spike): preview con WKWebView por defecto. Tiene
+        // bundle ID propio (net.omelas.macdown-wk), así no afecta a cmark-gfm.
+        @"experimentalWKWebView": @YES,
     }];
 
     // Using private API [WebCache setDisabled:YES] to disable WebView's cache
