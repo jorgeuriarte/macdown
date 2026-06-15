@@ -2229,9 +2229,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     NSRegularExpression *headerRegex = [NSRegularExpression regularExpressionWithPattern:@"^(#+)\\s" options:0 error:nil];
     NSRegularExpression *imgRegex = [NSRegularExpression regularExpressionWithPattern:@"^!\\[[^\\]]*\\]\\([^)]*\\)$" options:0 error:nil];
     BOOL previousLineHadContent = NO;
-    
-    CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
-    CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
 
     // We start by splitting our document into lines, and then searching
     // line by line for headers or images.
@@ -2248,9 +2245,11 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             NSRect topRect = [layoutManager boundingRectForGlyphRange:glyphRange inTextContainer:[self.editor textContainer]];
             CGFloat headerY = NSMidY(topRect);
 
-            if(headerY <= editorContentHeight - editorVisibleHeight){
-                [locations addObject:@(headerY)];
-            }
+            // Se incluyen TODAS las cabeceras (también las del último pantallazo).
+            // Antes se filtraban las finales, lo que dejaba sin resolución el último
+            // tramo del preview→editor (la sección final no era alcanzable). La
+            // dirección editor→preview ya ignora esas cabeceras por su cuenta.
+            [locations addObject:@(headerY)];
         }
         
         previousLineHadContent = [line length] && ![dashRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])];
