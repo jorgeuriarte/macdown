@@ -1341,18 +1341,25 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             break;
     }
 
+    // La siguiente cabecera es "alcanzable" solo si su posición en el preview cae
+    // dentro del rango scrolleable (<= previewMax). Las cabeceras del último
+    // pantallazo del visor quedan por encima de previewMax: no se pueden llevar
+    // arriba scrolleando, así que el último tramo alcanzable debe mapear hasta el
+    // fondo de AMBOS (previewMax → editorMax). Si no, el editor se queda corto y la
+    // sección final nunca se alcanza.
+    BOOL nextReachable = (idx + 1 < n) && ([pv[idx + 1] doubleValue] <= previewMax);
     CGFloat topPv, botPv, topEd, botEd;
     if (idx < 0)                       // antes del primer encabezado
     {
-        topPv = 0;                  botPv = [pv[0] doubleValue];
-        topEd = 0;                  botEd = [ed[0] doubleValue];
+        topPv = 0;                  botPv = (n > 0 ? [pv[0] doubleValue] : previewMax);
+        topEd = 0;                  botEd = (n > 0 ? [ed[0] doubleValue] : editorMax);
     }
-    else if (idx >= n - 1)             // tras el último común → hasta el final del doc
+    else if (!nextReachable)           // último tramo alcanzable → hasta el fondo
     {
-        topPv = [pv[n - 1] doubleValue];   botPv = previewMax;
-        topEd = [ed[n - 1] doubleValue];   botEd = editorMax;
+        topPv = [pv[idx] doubleValue];     botPv = previewMax;
+        topEd = [ed[idx] doubleValue];     botEd = editorMax;
     }
-    else                               // entre dos encabezados comunes
+    else                               // entre dos encabezados alcanzables
     {
         topPv = [pv[idx] doubleValue];     botPv = [pv[idx + 1] doubleValue];
         topEd = [ed[idx] doubleValue];     botEd = [ed[idx + 1] doubleValue];
@@ -1361,17 +1368,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     CGFloat frac = (botPv > topPv) ? MAX(0, MIN(1.0, (previewY - topPv) / (botPv - topPv))) : 0;
     CGFloat editorY = topEd + (botEd - topEd) * frac;
     editorY = MAX(0, MIN(editorY, editorMax));
-
-    FILE *_dbg = fopen("/tmp/macdown-sync.log", "a");
-    if (_dbg) {
-        fprintf(_dbg, "p2e previewY=%.0f previewMax=%.0f pv=%lu ed=%lu n=%ld idx=%ld "
-                "topPv=%.0f botPv=%.0f topEd=%.0f botEd=%.0f frac=%.2f editorY=%.0f editorMax=%.0f "
-                "editorContentH=%.0f editorVisH=%.0f\n",
-                previewY, previewMax, (unsigned long)pv.count, (unsigned long)ed.count,
-                (long)n, (long)idx, topPv, botPv, topEd, botEd, frac, editorY, editorMax,
-                editorContentHeight, editorVisibleHeight);
-        fclose(_dbg);
-    }
 
     BOOL prev = self.shouldHandleBoundsChange;
     self.shouldHandleBoundsChange = NO;
