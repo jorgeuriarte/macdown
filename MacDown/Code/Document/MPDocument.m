@@ -238,9 +238,14 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 // NSUserDefaults @"experimentalWKWebView". La WebView legacy sigue intacta.
 @property (strong) WKWebView *wkPreview;
 @property (copy) NSURL *wkPreviewTempURL;
+@property CGFloat wkPreviewContentHeight;   // alto total del contenido (px CSS)
+@property CGFloat wkPreviewVisibleHeight;   // alto visible del viewport (px CSS)
 - (BOOL)usesWKWebView;
 - (void)setupWKPreviewIfNeeded;
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
+- (void)updateEditorHeaderLocations;        // mitad "editor" de updateHeaderLocations
+- (void)refreshWKPreviewMetricsAsync;       // lee posiciones del preview (async)
+- (void)syncScrollersWK;
 
 @end
 
@@ -1307,6 +1312,13 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     if (self.renderToWebPending)
         [self.renderer parseAndRenderNow];
     self.renderToWebPending = NO;
+
+    // Calienta la caché de posiciones para que el scroll-sync no empiece en frío.
+    if (self.preferences.editorSyncScrolling)
+    {
+        [self updateEditorHeaderLocations];
+        [self refreshWKPreviewMetricsAsync];
+    }
 }
 
 - (void)webView:(WKWebView *)webView
@@ -2061,21 +2073,37 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 -(void) updateHeaderLocations
 {
+    if (self.usesWKWebView)
+    {
+        // WKWebView: la mitad "editor" es síncrona; las posiciones del preview se
+        // leen de forma asíncrona (no hay DOM síncrono). Se cachean y syncScrollers
+        // usa la caché por-frame (el contenido no se reflota durante un scroll).
+        [self updateEditorHeaderLocations];
+        [self refreshWKPreviewMetricsAsync];
+        return;
+    }
+
     CGFloat offset = NSMinY(self.preview.enclosingScrollView.contentView.bounds);
     NSMutableArray<NSNumber *> *locations = [NSMutableArray array];
 
     _webViewHeaderLocations = [[self.preview.mainFrame.javaScriptContext evaluateScript:@"var arr = Array.prototype.slice.call(document.querySelectorAll(\"h1, h2, h3, h4, h5, h6, img:only-child\")); arr.map(function(n){ return n.getBoundingClientRect().top })"] toArray];
-    
+
     // add offset to all numbers
     for (NSNumber *location in _webViewHeaderLocations)
     {
         [locations addObject:@([location floatValue] + offset)];
     }
-    
-    _webViewHeaderLocations = [locations copy];
-    
 
-    // Next, cache the locations of all of the reference nodes in the editor view.
+    _webViewHeaderLocations = [locations copy];
+
+    [self updateEditorHeaderLocations];
+}
+
+// Mitad "editor" de updateHeaderLocations: posiciones Y de cada encabezado/imagen
+// en el editor (vía layout manager). Compartida por la ruta legacy y la WK.
+- (void)updateEditorHeaderLocations
+{
+    NSMutableArray<NSNumber *> *locations = [NSMutableArray array];
     NSInteger characterCount = 0;
     NSLayoutManager *layoutManager = [self.editor layoutManager];
     NSArray<NSString *> *documentLines = [self.editor.string componentsSeparatedByString:@"\n"];
@@ -2121,6 +2149,12 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 - (void)syncScrollers
 {
+    if (self.usesWKWebView)
+    {
+        [self syncScrollersWK];
+        return;
+    }
+
     CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
     CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
     CGFloat previewContentHeight = ceilf(NSHeight(self.preview.enclosingScrollView.documentView.bounds));
@@ -2195,6 +2229,96 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     NSRect contentBounds = self.preview.enclosingScrollView.contentView.bounds;
     contentBounds.origin.y = previewY;
     self.preview.enclosingScrollView.contentView.bounds = contentBounds;
+}
+
+// Lee de forma asíncrona las posiciones Y absolutas de los encabezados del preview
+// WK más el alto de contenido y de viewport, y las cachea. WKWebView devuelve los
+// objetos/arrays JS como NSDictionary/NSArray, así que no hace falta parsear JSON.
+- (void)refreshWKPreviewMetricsAsync
+{
+    if (!self.wkPreview)
+        return;
+    NSString *js =
+        @"(function(){var hs=document.querySelectorAll('h1,h2,h3,h4,h5,h6,img:only-child');"
+        @"var ys=[];for(var i=0;i<hs.length;i++){ys.push(hs[i].getBoundingClientRect().top+window.pageYOffset);}"
+        @"return {ys:ys,content:(document.body?document.body.scrollHeight:0),visible:window.innerHeight};})()";
+    __weak MPDocument *weak = self;
+    [self.wkPreview evaluateJavaScript:js completionHandler:^(id result, NSError *err) {
+        if (![result isKindOfClass:[NSDictionary class]])
+            return;
+        MPDocument *strong = weak;
+        if (!strong)
+            return;
+        NSArray *ys = result[@"ys"];
+        if ([ys isKindOfClass:[NSArray class]])
+            strong->_webViewHeaderLocations = ys;
+        strong.wkPreviewContentHeight = [result[@"content"] doubleValue];
+        strong.wkPreviewVisibleHeight = [result[@"visible"] doubleValue];
+    }];
+}
+
+// Versión WK de syncScrollers: misma interpolación, pero con las métricas cacheadas
+// del preview y aplicando el scroll con window.scrollTo (instantáneo, fire-and-forget).
+- (void)syncScrollersWK
+{
+    if (!self.wkPreview)
+        return;
+
+    CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
+    CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
+    CGFloat previewContentHeight = self.wkPreviewContentHeight;
+    CGFloat previewVisibleHeight = self.wkPreviewVisibleHeight;
+    if (previewContentHeight <= 0 || previewVisibleHeight <= 0)
+        return;   // métricas del preview aún no leídas (async)
+
+    NSInteger relativeHeaderIndex = -1;
+    CGFloat currY = NSMinY(self.editor.enclosingScrollView.contentView.bounds);
+    CGFloat minY = 0;
+    CGFloat maxY = 0;
+
+    CGFloat topTaper = MAX(0, MIN(1.0, currY / editorVisibleHeight));
+    CGFloat bottomTaper = 1.0 - MAX(0, MIN(1.0, (currY - editorContentHeight + 2 * editorVisibleHeight) / editorVisibleHeight));
+    CGFloat adjustmentForScroll = topTaper * bottomTaper * editorVisibleHeight / 2;
+
+    for (NSNumber *headerYNum in _editorHeaderLocations) {
+        CGFloat headerY = [headerYNum floatValue] - adjustmentForScroll;
+        if (headerY < currY) {
+            relativeHeaderIndex += 1;
+            minY = headerY;
+        } else if (maxY == 0 && headerY < editorContentHeight - editorVisibleHeight) {
+            maxY = headerY;
+        }
+    }
+
+    BOOL interpolateToEndOfDocument = NO;
+    if (maxY == 0) {
+        maxY = editorContentHeight - editorVisibleHeight + adjustmentForScroll;
+        interpolateToEndOfDocument = YES;
+    }
+
+    currY = MAX(0, currY - minY);
+    maxY -= minY;
+    minY -= minY;
+    CGFloat percentScrolledBetweenHeaders = (maxY > 0) ? MAX(0, MIN(1.0, currY / maxY)) : 0;
+
+    CGFloat topHeaderY = 0;
+    CGFloat bottomHeaderY = previewContentHeight - previewVisibleHeight;
+    NSInteger headerCount = (NSInteger)_webViewHeaderLocations.count;
+
+    if (relativeHeaderIndex >= 0 && headerCount > relativeHeaderIndex)
+        topHeaderY = floorf([_webViewHeaderLocations[relativeHeaderIndex] doubleValue]) - adjustmentForScroll;
+
+    if (!interpolateToEndOfDocument && relativeHeaderIndex + 1 >= 0
+        && headerCount > relativeHeaderIndex + 1)
+        bottomHeaderY = ceilf([_webViewHeaderLocations[relativeHeaderIndex + 1] doubleValue]) - adjustmentForScroll;
+
+    CGFloat previewY = topHeaderY + (bottomHeaderY - topHeaderY) * percentScrolledBetweenHeaders;
+    if (previewY < 0)
+        previewY = 0;
+
+    NSString *js = [NSString stringWithFormat:
+        @"window.scrollTo({top:%.1f,left:0,behavior:'instant'});", (double)previewY];
+    [self.wkPreview evaluateJavaScript:js completionHandler:nil];
 }
 
 - (void)setSplitViewDividerLocation:(CGFloat)ratio
