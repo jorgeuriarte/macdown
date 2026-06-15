@@ -115,3 +115,41 @@
   `cmark_render_html` crudo, que **emite los headings sin `id`**; la TOC genera
   enlaces `#toc_N` que no tienen destino → navegación muerta. Fix previsto:
   post-proceso que inyecte `id="toc_N"` en orden (como `MPPostProcessCodeBlocks`).
+
+## 2026-06-15 — Consolidación paso 4: anclas de heading en cmark-gfm
+
+### Qué se hizo (`v0.9-cons.8`)
+- **Dos sistemas de anclas, paridad con la estable**:
+  - Cherry-pick de Reza Ambler (anclas **slug** estilo GitHub + su test
+    `MPHeadingAnchorTests.m` + smooth-scroll), agnóstico del motor.
+  - **`HTMLByAddingTOCHeadingIDs:`**: inyecta `id="toc_N"` para que el macro
+    `[TOC]` resuelva (cmark-gfm no emitía `id`). Numeración alineada con el
+    generador de TOC.
+- **Fix de mojibake** en el texto del macro `[TOC]`: se construía con `%s`
+  (UTF-8 leído como Mac Roman → `Instalación`→`Instalaci√≥n`). Decodificado con
+  `stringWithUTF8String:`.
+- **Plegado de acentos** en el slug (decisión de UX del usuario): `Instalación`
+  → `#instalacion`, `Año`→`ano`, ñ→n. **Diverge a propósito de GitHub/hoedown**
+  (que conservan acentos) para que los anclas se escriban a mano sin diacríticos.
+
+### Decisiones
+- Dos sistemas de anclas en vez de uno: `toc_N` posicional (macro `[TOC]`, sin
+  riesgo de matching) + slug aditivo (enlaces a mano). Igual que la estable.
+- Stub de test `MPAnchorStubDelegate` completado con los 6 métodos extra que
+  exige `MPRendererDelegate` en la línea cmark-gfm (crasheaba con
+  `unrecognized selector rendererCmarkExtensions:`).
+
+### Verificación (de verdad, no solo "compila")
+- CI verde con tests nuevos: plegado, mojibake (regresión), `toc_N`, pipeline.
+- Runtime sobre `prueba-toc.md` (Copy HTML): cada `href` casa con su `id`
+  (`#instalacion`↔`id="instalacion"`), el contraejemplo con tilde no casa, y
+  el texto del `[TOC]` sale con acentos correctos (0 ocurrencias de `√`).
+- Camino de baches honesto: cons.5 falló (stub incompleto), cons.7 arregló el
+  mojibake, cons.8 añadió el plegado. Un `gh run watch` dio un falso "exit 0"
+  enmascarado por un comando posterior → ahora se captura la conclusión real.
+
+### Pendiente
+- Paso 5: usar la base de verdad y decidir migración a WKWebView.
+- Salvedad: la inyección `toc_N` (regex sobre `<hN>`) cuenta también headings
+  HTML crudos, que el generador de TOC (AST) ignora → desalineación en ese caso
+  raro. Misma limitación que el inyector de slugs de la estable.
