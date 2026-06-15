@@ -102,6 +102,18 @@ NS_INLINE void treat()
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
+    // Extensiones de Markdown activadas por defecto (un editor moderno debería
+    // traer GFM listo). Solo aplica a instalaciones nuevas: respeta lo que el
+    // usuario ya haya cambiado en Preferencias.
+    [[NSUserDefaults standardUserDefaults] registerDefaults:@{
+        @"extensionTables": @YES,
+        @"extensionStrikethough": @YES,
+        @"extensionAutolink": @YES,
+        @"extensionFootnotes": @YES,
+        @"extensionSmartyPants": @YES,
+        @"htmlTaskList": @YES,
+    }];
+
     // Using private API [WebCache setDisabled:YES] to disable WebView's cache
     id webCacheClass = (id)NSClassFromString(@"WebCache");
     if (webCacheClass) {
