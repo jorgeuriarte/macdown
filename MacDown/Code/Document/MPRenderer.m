@@ -98,12 +98,136 @@ NS_INLINE NSArray *MPPrismScriptURLsForLanguage(NSString *language)
 + (NSString *)HTMLByAddingTOCHeadingIDs:(NSString *)html;
 @end
 
+#pragma mark - Protección de math (cmark-gfm no conoce math)
+
+// Rangos de bloques de código fenced (```/~~~), para no extraer math dentro.
+static NSArray<NSValue *> *MPFencedCodeRanges(NSString *md)
+{
+    static NSRegularExpression *re = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        re = [NSRegularExpression regularExpressionWithPattern:
+            @"(?ms)^[ \\t]*(`{3,}|~{3,}).*?^[ \\t]*\\1[ \\t]*$" options:0 error:NULL];
+    });
+    NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+    [re enumerateMatchesInString:md options:0 range:NSMakeRange(0, md.length)
+        usingBlock:^(NSTextCheckingResult *m, NSMatchingFlags f, BOOL *s) {
+            [ranges addObject:[NSValue valueWithRange:m.range]];
+        }];
+    return ranges;
+}
+
+static BOOL MPLocationInRanges(NSUInteger loc, NSArray<NSValue *> *ranges)
+{
+    for (NSValue *v in ranges) {
+        NSRange r = v.rangeValue;
+        if (loc >= r.location && loc < r.location + r.length)
+            return YES;
+    }
+    return NO;
+}
+
+// Sustituye las fórmulas por placeholders inertes (que cmark-gfm no mangla) y las
+// guarda en outSpans listas para MathJax: display como $$..$$, inline como \(..\)
+// (delimitador seguro, así no hay que activar el $ naive). Heurística anti-monedas
+// para el inline $..$: apertura pegada a no-espacio/no-dígito; cierre pegado a
+// no-espacio y no seguido de dígito (descarta $5, $10, $20,000). No toca código.
+static NSString *MPProtectMath(NSString *md, NSMutableArray<NSString *> *outSpans)
+{
+    static NSRegularExpression *reList[4]; static BOOL reDisplay[4];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSRegularExpressionOptions dot = NSRegularExpressionDotMatchesLineSeparators;
+        reList[0] = [NSRegularExpression regularExpressionWithPattern:@"(?<!\\\\)\\$\\$(.+?)\\$\\$" options:dot error:NULL]; reDisplay[0]=YES;
+        reList[1] = [NSRegularExpression regularExpressionWithPattern:@"(?<!\\\\)\\\\\\[(.+?)\\\\\\]" options:dot error:NULL]; reDisplay[1]=YES;
+        reList[2] = [NSRegularExpression regularExpressionWithPattern:@"(?<!\\\\)\\\\\\((.+?)\\\\\\)" options:dot error:NULL]; reDisplay[2]=NO;
+        reList[3] = [NSRegularExpression regularExpressionWithPattern:@"(?<!\\\\)\\$(?=[^\\s\\d$])([^\\n$]*?\\S)\\$(?!\\d)" options:0 error:NULL]; reDisplay[3]=NO;
+    });
+
+    NSArray<NSValue *> *code = MPFencedCodeRanges(md);
+    NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+    NSMutableArray<NSString *> *spans = [NSMutableArray array];
+
+    for (int i = 0; i < 4; i++) {
+        NSRegularExpression *re = reList[i]; BOOL disp = reDisplay[i];
+        [re enumerateMatchesInString:md options:0 range:NSMakeRange(0, md.length)
+            usingBlock:^(NSTextCheckingResult *m, NSMatchingFlags f, BOOL *s) {
+                if (MPLocationInRanges(m.range.location, code))
+                    return;
+                NSString *inner = [md substringWithRange:[m rangeAtIndex:1]];
+                NSString *span = disp ? [NSString stringWithFormat:@"$$%@$$", inner]
+                                      : [NSString stringWithFormat:@"\\(%@\\)", inner];
+                [ranges addObject:[NSValue valueWithRange:m.range]];
+                [spans addObject:span];
+            }];
+    }
+    if (ranges.count == 0)
+        return md;
+
+    // Ordena por posición e ignora solapamientos (display delimita sobre inline).
+    NSMutableArray<NSNumber *> *idx = [NSMutableArray array];
+    for (NSUInteger i = 0; i < ranges.count; i++) [idx addObject:@(i)];
+    [idx sortUsingComparator:^NSComparisonResult(NSNumber *a, NSNumber *b) {
+        NSUInteger la = [ranges[a.unsignedIntegerValue] rangeValue].location;
+        NSUInteger lb = [ranges[b.unsignedIntegerValue] rangeValue].location;
+        return (la < lb) ? NSOrderedAscending : (la > lb ? NSOrderedDescending : NSOrderedSame);
+    }];
+
+    NSMutableArray<NSValue *> *keptRanges = [NSMutableArray array];
+    NSMutableArray<NSString *> *keptSpans = [NSMutableArray array];
+    NSUInteger lastEnd = 0;
+    for (NSNumber *n in idx) {
+        NSRange r = [ranges[n.unsignedIntegerValue] rangeValue];
+        if (r.location < lastEnd) continue;                 // solapa → descarta
+        [keptRanges addObject:[NSValue valueWithRange:r]];
+        [keptSpans addObject:spans[n.unsignedIntegerValue]];
+        lastEnd = r.location + r.length;
+    }
+
+    // Reemplaza de atrás hacia delante por placeholders inertes.
+    NSMutableString *out = [md mutableCopy];
+    for (NSInteger i = keptRanges.count - 1; i >= 0; i--) {
+        NSRange r = [keptRanges[i] rangeValue];
+        [outSpans insertObject:keptSpans[i] atIndex:0];     // mantiene el orden
+        NSString *ph = [NSString stringWithFormat:@"xMACDOWNMATHx%ldx", (long)i];
+        [out replaceCharactersInRange:r withString:ph];
+    }
+    return [out copy];
+}
+
+// Reinserta el math tras renderizar. Escapa &<> del contenido (como haría cmark)
+// para que el navegador no lo lea como HTML; MathJax recibe el texto correcto.
+static NSString *MPReinsertMath(NSString *html, NSArray<NSString *> *spans)
+{
+    if (spans.count == 0)
+        return html;
+    NSMutableString *out = [html mutableCopy];
+    for (NSInteger i = spans.count - 1; i >= 0; i--) {
+        NSString *esc = [[[spans[i]
+            stringByReplacingOccurrencesOfString:@"&" withString:@"&amp;"]
+            stringByReplacingOccurrencesOfString:@"<" withString:@"&lt;"]
+            stringByReplacingOccurrencesOfString:@">" withString:@"&gt;"];
+        NSString *ph = [NSString stringWithFormat:@"xMACDOWNMATHx%ldx", (long)i];
+        [out replaceOccurrencesOfString:ph withString:esc options:0
+                                  range:NSMakeRange(0, out.length)];
+    }
+    return [out copy];
+}
+
 NS_INLINE NSString *MPHTMLFromMarkdown(
     NSString *text, NSArray<NSString *> *extensions, int options,
-    MPCmarkRenderFlags renderFlags, BOOL hasTOC, NSString *frontMatter,
+    MPCmarkRenderFlags renderFlags, BOOL hasTOC, BOOL hasMathJax, NSString *frontMatter,
     MPLanguageCallback languageCallback,
     NSMutableArray<NSString *> *outLanguages)
 {
+    // Protege el math antes de cmark-gfm (que lo mangla) y lo reinserta después.
+    NSMutableArray<NSString *> *mathSpans = nil;
+    if (hasMathJax)
+    {
+        mathSpans = [NSMutableArray array];
+        text = MPProtectMath(text, mathSpans);
+    }
+
     NSString *result = MPCmarkGFMToHTML(
         text, extensions, options, renderFlags,
         languageCallback, outLanguages);
@@ -136,6 +260,10 @@ NS_INLINE NSString *MPHTMLFromMarkdown(
 
     // Give headings GitHub-style id anchors so in-document TOC links resolve.
     result = [MPRenderer HTMLByAddingHeadingAnchors:result];
+
+    // Reinserta las fórmulas protegidas (ya como $$..$$ / \(..\) para MathJax).
+    if (mathSpans.count)
+        result = MPReinsertMath(result, mathSpans);
 
     if (frontMatter)
         result = [NSString stringWithFormat:@"%@\n%@",
@@ -541,6 +669,7 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     BOOL smartypants = [delegate rendererHasSmartyPants:self];
     BOOL hasFrontMatter = [delegate rendererDetectsFrontMatter:self];
     BOOL hasTOC = [delegate rendererRendersTOC:self];
+    BOOL hasMathJax = [delegate rendererHasMathJax:self];
 
     id frontMatter = nil;
     if (hasFrontMatter)
@@ -570,7 +699,7 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
 
     self.currentHtml = MPHTMLFromMarkdown(
         markdown, extNames, cmarkOptions, renderFlags,
-        hasTOC, [frontMatter HTMLTable],
+        hasTOC, hasMathJax, [frontMatter HTMLTable],
         langCallback, self.currentLanguages);
     self.cmarkRenderFlags = renderFlags;
 
