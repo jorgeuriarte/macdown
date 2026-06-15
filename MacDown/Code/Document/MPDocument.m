@@ -1362,6 +1362,11 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     CGFloat editorY = topEd + (botEd - topEd) * frac;
     editorY = MAX(0, MIN(editorY, editorMax));
 
+    NSLog(@"WKSYNC p2e previewY=%.0f previewMax=%.0f pv=%lu ed=%lu n=%ld idx=%ld "
+          @"topPv=%.0f botPv=%.0f topEd=%.0f botEd=%.0f frac=%.2f editorY=%.0f editorMax=%.0f",
+          previewY, previewMax, (unsigned long)pv.count, (unsigned long)ed.count,
+          (long)n, (long)idx, topPv, botPv, topEd, botEd, frac, editorY, editorMax);
+
     BOOL prev = self.shouldHandleBoundsChange;
     self.shouldHandleBoundsChange = NO;
     NSClipView *clip = self.editor.enclosingScrollView.contentView;
