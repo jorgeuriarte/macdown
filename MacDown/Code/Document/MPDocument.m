@@ -1314,15 +1314,21 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 {
     NSArray<NSNumber *> *pv = _webViewHeaderLocations;
     NSArray<NSNumber *> *ed = _editorHeaderLocations;
-    if (pv.count == 0 || ed.count == 0)
+    // La lista del editor está filtrada (omite los encabezados del último
+    // pantallazo), la de la vista los tiene todos. Solo son fiables los índices
+    // COMUNES; más allá del último, se interpola hasta el final del documento.
+    NSInteger n = MIN((NSInteger)pv.count, (NSInteger)ed.count);
+    if (n == 0)
         return;
 
     CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
     CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
+    CGFloat editorMax = MAX(0, editorContentHeight - editorVisibleHeight);
+    CGFloat previewMax = MAX(0, self.wkPreviewContentHeight - self.wkPreviewVisibleHeight);
 
-    // Busca el par de encabezados de la vista entre los que cae previewY.
+    // idx = último encabezado común con pv[idx] <= previewY.
     NSInteger idx = -1;
-    for (NSInteger i = 0; i < (NSInteger)pv.count; i++)
+    for (NSInteger i = 0; i < n; i++)
     {
         if ([pv[i] doubleValue] <= previewY)
             idx = i;
@@ -1330,18 +1336,26 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             break;
     }
 
-    CGFloat topPv = (idx >= 0) ? [pv[idx] doubleValue] : 0;
-    CGFloat botPv = ((idx + 1) < (NSInteger)pv.count)
-        ? [pv[idx + 1] doubleValue]
-        : MAX(topPv, self.wkPreviewContentHeight - self.wkPreviewVisibleHeight);
-    CGFloat frac = (botPv > topPv) ? MAX(0, MIN(1.0, (previewY - topPv) / (botPv - topPv))) : 0;
+    CGFloat topPv, botPv, topEd, botEd;
+    if (idx < 0)                       // antes del primer encabezado
+    {
+        topPv = 0;                  botPv = [pv[0] doubleValue];
+        topEd = 0;                  botEd = [ed[0] doubleValue];
+    }
+    else if (idx >= n - 1)             // tras el último común → hasta el final del doc
+    {
+        topPv = [pv[n - 1] doubleValue];   botPv = previewMax;
+        topEd = [ed[n - 1] doubleValue];   botEd = editorMax;
+    }
+    else                               // entre dos encabezados comunes
+    {
+        topPv = [pv[idx] doubleValue];     botPv = [pv[idx + 1] doubleValue];
+        topEd = [ed[idx] doubleValue];     botEd = [ed[idx + 1] doubleValue];
+    }
 
-    CGFloat topEd = (idx >= 0 && idx < (NSInteger)ed.count) ? [ed[idx] doubleValue] : 0;
-    CGFloat botEd = ((idx + 1) < (NSInteger)ed.count)
-        ? [ed[idx + 1] doubleValue]
-        : (editorContentHeight - editorVisibleHeight);
+    CGFloat frac = (botPv > topPv) ? MAX(0, MIN(1.0, (previewY - topPv) / (botPv - topPv))) : 0;
     CGFloat editorY = topEd + (botEd - topEd) * frac;
-    editorY = MAX(0, MIN(editorY, MAX(0, editorContentHeight - editorVisibleHeight)));
+    editorY = MAX(0, MIN(editorY, editorMax));
 
     BOOL prev = self.shouldHandleBoundsChange;
     self.shouldHandleBoundsChange = NO;
