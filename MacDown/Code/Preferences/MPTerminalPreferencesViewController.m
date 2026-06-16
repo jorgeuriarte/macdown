@@ -150,14 +150,38 @@ NS_INLINE NSColor *MPGetInstallationIndicatorColor(BOOL installed)
         [sharedSupportURL URLByAppendingPathComponent:@"bin/macdown"].path;
 
     NSFileManager *fm = [NSFileManager defaultManager];
-    if ([fm fileExistsAtPath:utilityBundlePath])
-    {
-        BOOL ok = [fm createSymbolicLinkAtPath:MPCommandInstallationPath
-                           withDestinationPath:utilityBundlePath error:NULL];
+    if (![fm fileExistsAtPath:utilityBundlePath])
+        return;
+
+    // Instala el symlink donde lookForShellUtility lo busca: el prefijo de
+    // Homebrew si existe (p. ej. /opt/homebrew/bin en Apple Silicon, escribible
+    // por el usuario y en el PATH), o /usr/local/bin como fallback. Evita
+    // escribir en /usr/local/bin (root) sin privilegios, que fallaba en
+    // Apple Silicon y dejaba el botón sin efecto.
+    __weak MPTerminalPreferencesViewController *weakSelf = self;
+    MPDetectHomebrewPrefixWithCompletionhandler(^(NSString *output) {
+        NSString *installPath = MPCommandInstallationPath;
+        if (output)
+        {
+            NSCharacterSet *padding =
+                [NSCharacterSet whitespaceAndNewlineCharacterSet];
+            NSString *prefix = [output stringByTrimmingCharactersInSet:padding];
+            installPath =
+                [prefix stringByAppendingPathComponent:@"bin/macdown"];
+        }
+
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        // Reinstala limpio: si ya hay un enlace/fichero en el destino, lo quita.
+        if ([fileManager fileExistsAtPath:installPath])
+            [fileManager removeItemAtPath:installPath error:NULL];
+
+        BOOL ok = [fileManager createSymbolicLinkAtPath:installPath
+                                    withDestinationPath:utilityBundlePath
+                                                  error:NULL];
         if (ok)
-            [self lookForShellUtility];
-        // TODO: Handle install failure.
-    }
+            [weakSelf lookForShellUtility];
+        // TODO: Handle install failure (p. ej. destino no escribible).
+    });
 }
 
 - (void)uninstallShellUtility
