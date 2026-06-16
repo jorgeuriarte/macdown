@@ -418,8 +418,8 @@
                                     <action selector="showPreviewOnly:" target="-1" id="qvm-prev-act1"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Cycle View Mode" keyEquivalent="0" id="qvm-cycle-0001">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                            <menuItem title="Cycle View Mode" keyEquivalent="l" id="qvm-cycle-0001">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 <connections>
                                     <action selector="cycleViewMode:" target="-1" id="qvm-cycle-act1"/>
                                 </connections>
