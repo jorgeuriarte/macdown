@@ -106,13 +106,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          printf '%s\n\n%s\n' \
+            'Pre-release de **MacDown Remix**, fork de mantenimiento de MacDown sobre **cmark-gfm + WKWebView**. Respeta la licencia MIT y el copyright original (Tzu-ping Chung / uranusjr); atribuciones en `docs/CREDITS.md`.' \
+            '**Instalación:** descarga el `.dmg`/`.zip`, o usa `claude_tools/install-latest-beta.sh`. El binario va firmado *adhoc* (sin Developer ID); el auto-update de Sparkle puede descargar pero **no instalar** hasta tener notarización — por ahora se instala a mano. Quita la cuarentena con `xattr -cr` si Gatekeeper se queja.' \
+            > /tmp/release-notes.md
           gh release create "${GITHUB_REF_NAME}" \
             dist/MacDown.zip dist/MacDown.dmg \
-            --title "MacDown ${GITHUB_REF_NAME} (cmark-gfm experimental)" \
+            --title "MacDown Remix ${GITHUB_REF_NAME}" \
             --prerelease \
-            --notes "Pre-release **experimental** con el motor de render **cmark-gfm** (basado en SiggeMcKvack/macdown). Pierde algunas extensiones de hoedown (highlight, superscript, underline, quote). Canal: experimental (beta)."
+            --notes-file /tmp/release-notes.md
 
-      - name: Actualizar appcast del canal experimental (en tags)
+      - name: Actualizar appcast del canal Remix (en tags)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
@@ -131,8 +135,8 @@ jobs:
           # appcast se genera desde dist/MacDown.zip, ya construido).
           git checkout -f -B master origin/master
           KEYFILE="$(mktemp)"; printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
-          Tools/update_appcast.sh dist/MacDown.zip "${GITHUB_RUN_NUMBER}" "$SHORTVER" "$URL" "$KEYFILE" "appcast-beta.xml" 11.0
+          Tools/update_appcast.sh dist/MacDown.zip "${GITHUB_RUN_NUMBER}" "$SHORTVER" "$URL" "$KEYFILE" "appcast-remix.xml" 11.0
           rm -f "$KEYFILE"
-          git add appcast-beta.xml
-          git commit -m "ci: appcast-beta (cmark-gfm) para ${TAG} [skip ci]" || { echo "sin cambios"; exit 0; }
+          git add appcast-remix.xml
+          git commit -m "ci: appcast-remix para ${TAG} [skip ci]" || { echo "sin cambios"; exit 0; }
           git push origin master

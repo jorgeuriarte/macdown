@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# install-latest-beta.sh — Instala a mano la última pre-release del canal beta
-# (cmark-gfm) saltándose el auto-update de Sparkle.
+# install-latest-beta.sh — Instala a mano la última pre-release del canal Remix
+# (cmark-gfm + WKWebView) saltándose el auto-update de Sparkle.
 #
 # Por qué existe: los binarios van firmados *adhoc* (sin Developer ID, porque
 # notarizar es de pago). Sparkle 2 verifica la firma EdDSA (válida) pero además
@@ -15,8 +15,8 @@
 #
 set -euo pipefail
 
-APPCAST="https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-beta.xml"
-DEST="/Applications/MacDown cmark-gfm.app"
+APPCAST="https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-remix.xml"
+DEST="/Applications/MacDown Remix.app"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -37,7 +37,7 @@ APP="$(find "$TMP" -maxdepth 1 -name '*.app' | head -1)"
 echo "→ Cerrando la app instalada si está abierta…"
 osascript -e "tell application \"$DEST\" to quit" 2>/dev/null || true
 sleep 2
-pkill -f "/Applications/MacDown cmark-gfm.app/Contents/MacOS/MacDown" 2>/dev/null || true
+pkill -f "/Applications/MacDown Remix.app/Contents/MacOS/MacDown" 2>/dev/null || true
 sleep 1
 
 echo "→ Instalando en: $DEST"
