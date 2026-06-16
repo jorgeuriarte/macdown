@@ -1,14 +1,15 @@
-name: Build (experimental cmark-gfm)
+name: Build MacDown Remix (cmark-gfm + WKWebView)
 
-# Rama experimental que prueba el motor de render cmark-gfm (de SiggeMcKvack).
-# Publica SIEMPRE pre-releases en el canal beta/experimental (appcast-beta.xml).
+# Línea única de MacDown Remix: motor cmark-gfm (de SiggeMcKvack) + preview
+# WKWebView. master es la rama principal; los builds de rama suben artefacto
+# descargable y los tags con guion publican pre-release (canal Remix).
 #
-# Crear una pre-release experimental:
-#   git tag v0.9-cmark.1 && git push origin v0.9-cmark.1
+# Crear una pre-release:
+#   git tag v1.0-beta.1 && git push origin v1.0-beta.1
 on:
   push:
-    branches: [ experiment/cmark-gfm, feature/consolidate-on-cmark-gfm, experiment/wkwebview ]
-    tags: [ 'v*-*' ]          # tags con guion => canal experimental
+    branches: [ master, experiment/cmark-gfm, feature/consolidate-on-cmark-gfm, experiment/wkwebview, feature/converge-remix ]
+    tags: [ 'v*-*' ]          # tags con guion => pre-release
   workflow_dispatch:
 
 permissions:
