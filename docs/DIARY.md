@@ -25,8 +25,21 @@
 - Se re-desactivó Dependabot (la convergencia reintrodujo su config desde la línea
   cmark; master lo tenía desactivado a propósito). Sus 2 PRs se cerraron.
 
+### Instalación local y CLI tool
+- Instalado el build de master como **MacDown Remix** (única app MacDown del sistema);
+  borrada la beta `MacDown cmark-gfm.app` y desinstalada la estable hoedown vía
+  `brew uninstall --cask macdown` (el cask oficial 0.7.2 estaba deprecated).
+- **CLI `macdown` autónomo**: el rebrand había dejado `kMPApplicationBundleIdentifier`
+  con el id histórico `com.uranusjr.macdown`, así que el helper de CLI no encontraba la
+  app; ahora apunta a `net.omelas.macdown-remix`. Y `installShellUtility` escribía
+  hardcodeado en `/usr/local/bin` (root, sin privilegios → fallaba en Apple Silicon);
+  ahora instala en el prefijo de Homebrew (`/opt/homebrew/bin`, escribible y en PATH),
+  igual que la detección. El suite de NSUserDefaults se mantiene (rendezvous + prefs).
+- Limpiada una copia rota `~/Dropbox/.../Downloads/_Revisar/MacDown.app` (Info.plist
+  ilegible) que LaunchServices resolvía con `open -a MacDown` → error -10810. Hábito
+  nuevo: lanzar con `macdown` o `open -b net.omelas.macdown-remix`.
+
 ### Pendiente
-- A3 (print/PDF en WK): construido, falta confirmación visual del usuario.
 - Fase C: canal de release Remix (`appcast-remix.xml` firmado EdDSA) + tag `v1.0-beta.1`.
 
 ## 2026-06-13 — Arranque del fork de mantenimiento

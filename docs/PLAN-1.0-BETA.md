@@ -32,7 +32,7 @@ Que el modo WK (por defecto) sea coherente. Cada uno con su build.
 |---|---|---|---|
 | A1 | **Contador de palabras** | Contar desde el **markdown del editor** (ya en memoria), no del DOM. Elimina la dependencia de `DOMNode+Text`. Funciona en ambos motores. | ✅ |
 | A2 | **Zoom del preview** | Usar `magnification` de WKWebView (o `zoom` CSS vía JS) en vez de `setPageSizeMultiplier` (API privada del legacy). | ✅ atajos ⌘=/⌘−/⌘0 |
-| A3 | **Imprimir / exportar PDF** | Portar a WKWebView (`createPDFWithConfiguration:` / operación de impresión de WKWebView) en vez del `WebFrameView` del legacy. | 🔨 construido, falta confirmación visual |
+| A3 | **Imprimir / exportar PDF** | Portar a WKWebView (`createPDFWithConfiguration:` / operación de impresión de WKWebView) en vez del `WebFrameView` del legacy. | ✅ confirmado visualmente (⌘P) |
 | A4 | **Callback de MathJax** | Cablear vía el `WKScriptMessageHandler` que ya existe (mensaje "math done") en vez del `windowScriptObject` legacy. | ✅ + protección de math (display/inline/matriz), monedas seguras |
 
 ### Fase B — Línea única
