@@ -1055,6 +1055,38 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 }
 
 
+#pragma mark - WKNavigationDelegate
+
+// Equivalente WK del WebPolicyDelegate de arriba: sin esto, un clic en un enlace
+// hace que WKWebView navegue dentro del preview y muestre el destino (p. ej. otro
+// .md) como texto plano. Interceptamos los clics para abrir el documento en MacDown
+// (o el enlace externo en el navegador), y dejamos pasar los saltos a anclas.
+- (void)webView:(WKWebView *)webView
+    decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
+                decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
+{
+    NSURL *url = navigationAction.request.URL;
+    if (navigationAction.navigationType == WKNavigationTypeLinkActivated && url)
+    {
+        // Ancla dentro de la propia página del preview (#sección): el WebView
+        // carga un fichero temporal; si el destino es ese mismo fichero, es un
+        // salto interno y dejamos que WK haga el scroll.
+        if (self.wkPreviewTempURL && url.isFileURL &&
+            [url.path isEqualToString:self.wkPreviewTempURL.path])
+        {
+            decisionHandler(WKNavigationActionPolicyAllow);
+            return;
+        }
+        // Cualquier otro destino (otro .md, una imagen, una URL http…): lo
+        // gestionamos nosotros en vez de dejar que WK lo abra como texto plano.
+        decisionHandler(WKNavigationActionPolicyCancel);
+        [self openOrCreateFileForUrl:url];
+        return;
+    }
+    decisionHandler(WKNavigationActionPolicyAllow);
+}
+
+
 #pragma mark - WebEditingDelegate
 
 - (BOOL)webView:(WebView *)webView doCommandBySelector:(SEL)selector
