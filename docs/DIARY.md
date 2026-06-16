@@ -1,5 +1,34 @@
 # Diario de desarrollo — MacDown (fork propio)
 
+## 2026-06-16 — Fase B: convergencia en línea única (cmark-gfm + WKWebView)
+
+### Qué se hizo
+- **A4 (MathJax) cerrado**: protección de math antes de cmark-gfm (que mangla LaTeX)
+  y reinserción tras render. Display `$$..$$`, inline `\(..\)`, con heurística
+  anti-monedas (`$5`, `$10`, `$20,000` quedan como texto) y respeto a bloques de
+  código. Verificado en pipeline real (el `\\` de salto de fila de la matriz llega
+  intacto al HTML; antes era un artefacto de visualización del terminal).
+- **Fase B — línea única**: se entierra la doble línea (estable hoedown / experimental
+  cmark-gfm). `master` pasa a ser **MacDown Remix** = cmark-gfm + WKWebView.
+  - `legacy-hoedown` (tag) archiva la línea hoedown + WebView legacy (`fd7b0ff`).
+  - Convergencia hecha como **merge commit con árbol controlado**: el código viene
+    íntegro de `experiment/wkwebview` (build 97, verde y validado) y los docs/gestión
+    de la línea master (CLAUDE.md, README, planes, ROADMAP, tracking de forks, appcasts).
+  - `master` = `9b5c57d`, **build verde** en CI bajo el nuevo workflow
+    "Build MacDown Remix (cmark-gfm + WKWebView)".
+
+### Decisiones
+- No se hizo `git merge` automático: las dos líneas integraron features por cherry-pick
+  (mismo contenido, SHAs distintos) → merge-base antiquísimo y conflictos masivos. Se
+  pobló el árbol desde `wkwebview` y se reinyectaron los docs de master, preservando
+  ambos padres en el grafo y dejando el código idéntico al build verde.
+- Se re-desactivó Dependabot (la convergencia reintrodujo su config desde la línea
+  cmark; master lo tenía desactivado a propósito). Sus 2 PRs se cerraron.
+
+### Pendiente
+- A3 (print/PDF en WK): construido, falta confirmación visual del usuario.
+- Fase C: canal de release Remix (`appcast-remix.xml` firmado EdDSA) + tag `v1.0-beta.1`.
+
 ## 2026-06-13 — Arranque del fork de mantenimiento
 
 ### Qué se hizo
