@@ -214,6 +214,97 @@ static NSString *MPReinsertMath(NSString *html, NSArray<NSString *> *spans)
     return [out copy];
 }
 
+#pragma mark - Extensiones inline propias (cmark-gfm no las trae)
+
+// Rangos de spans de código inline (`...`), para no tocar ==/^ dentro de código.
+static NSArray<NSValue *> *MPInlineCodeRanges(NSString *md)
+{
+    static NSRegularExpression *re = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        re = [NSRegularExpression regularExpressionWithPattern:
+            @"(`+)([^\\n]+?)\\1" options:0 error:NULL];
+    });
+    NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+    [re enumerateMatchesInString:md options:0 range:NSMakeRange(0, md.length)
+        usingBlock:^(NSTextCheckingResult *m, NSMatchingFlags f, BOOL *s) {
+            [ranges addObject:[NSValue valueWithRange:m.range]];
+        }];
+    return ranges;
+}
+
+// Resaltado ==texto== -> <mark> y superíndice ^texto^ -> <sup>: dos extensiones que
+// hoedown tenía y cmark-gfm no. Se aplican sobre el markdown (cmark va con UNSAFE, así
+// que el HTML inline pasa) y el interior se procesa como markdown normal. Se respetan
+// bloques y spans de código. Importante: llamar DESPUÉS de proteger el math, así el ^
+// de las fórmulas (ya como placeholder) no se confunde con superíndice.
+static NSString *MPApplyInlineExtensions(NSString *md)
+{
+    static NSRegularExpression *reList[2];
+    static NSString *tmplList[2];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        // Resaltado: ==texto==, contenido sin espacios pegados a los delimitadores.
+        reList[0] = [NSRegularExpression regularExpressionWithPattern:
+            @"(?<!=)==(?=\\S)([^\\n]*?\\S)==(?!=)" options:0 error:NULL];
+        tmplList[0] = @"<mark>$1</mark>";
+        // Superíndice: ^texto^, sin espacios ni ^ dentro.
+        reList[1] = [NSRegularExpression regularExpressionWithPattern:
+            @"(?<!\\^)\\^(?=\\S)([^\\s^]+?)\\^(?!\\^)" options:0 error:NULL];
+        tmplList[1] = @"<sup>$1</sup>";
+    });
+
+    NSMutableArray<NSValue *> *code = [NSMutableArray array];
+    [code addObjectsFromArray:MPFencedCodeRanges(md)];
+    [code addObjectsFromArray:MPInlineCodeRanges(md)];
+
+    // Recoge los reemplazos (rango -> html) fuera de código.
+    NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+    NSMutableArray<NSString *> *repls = [NSMutableArray array];
+    for (int i = 0; i < 2; i++) {
+        NSRegularExpression *re = reList[i];
+        NSString *tmpl = tmplList[i];
+        [re enumerateMatchesInString:md options:0 range:NSMakeRange(0, md.length)
+            usingBlock:^(NSTextCheckingResult *m, NSMatchingFlags f, BOOL *s) {
+                if (MPLocationInRanges(m.range.location, code))
+                    return;
+                NSString *html = [re replacementStringForResult:m inString:md
+                                                         offset:0 template:tmpl];
+                [ranges addObject:[NSValue valueWithRange:m.range]];
+                [repls addObject:html];
+            }];
+    }
+    if (ranges.count == 0)
+        return md;
+
+    // Ordena por posición, descarta solapamientos, reemplaza de atrás hacia delante.
+    NSMutableArray<NSNumber *> *idx = [NSMutableArray array];
+    for (NSUInteger i = 0; i < ranges.count; i++) [idx addObject:@(i)];
+    [idx sortUsingComparator:^NSComparisonResult(NSNumber *a, NSNumber *b) {
+        NSUInteger la = [ranges[a.unsignedIntegerValue] rangeValue].location;
+        NSUInteger lb = [ranges[b.unsignedIntegerValue] rangeValue].location;
+        return (la < lb) ? NSOrderedAscending : (la > lb ? NSOrderedDescending : NSOrderedSame);
+    }];
+
+    NSMutableArray<NSValue *> *keptR = [NSMutableArray array];
+    NSMutableArray<NSString *> *keptV = [NSMutableArray array];
+    NSUInteger lastEnd = 0;
+    for (NSNumber *n in idx) {
+        NSRange r = [ranges[n.unsignedIntegerValue] rangeValue];
+        if (r.location < lastEnd) continue;
+        [keptR addObject:[NSValue valueWithRange:r]];
+        [keptV addObject:repls[n.unsignedIntegerValue]];
+        lastEnd = r.location + r.length;
+    }
+
+    NSMutableString *out = [md mutableCopy];
+    for (NSInteger i = keptR.count - 1; i >= 0; i--) {
+        NSRange r = [keptR[i] rangeValue];
+        [out replaceCharactersInRange:r withString:keptV[i]];
+    }
+    return [out copy];
+}
+
 NS_INLINE NSString *MPHTMLFromMarkdown(
     NSString *text, NSArray<NSString *> *extensions, int options,
     MPCmarkRenderFlags renderFlags, BOOL hasTOC, BOOL hasMathJax, NSString *frontMatter,
@@ -227,6 +318,9 @@ NS_INLINE NSString *MPHTMLFromMarkdown(
         mathSpans = [NSMutableArray array];
         text = MPProtectMath(text, mathSpans);
     }
+
+    // Extensiones propias (resaltado ==, superíndice ^) tras proteger el math.
+    text = MPApplyInlineExtensions(text);
 
     NSString *result = MPCmarkGFMToHTML(
         text, extensions, options, renderFlags,
