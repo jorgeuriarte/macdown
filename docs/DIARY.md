@@ -39,6 +39,22 @@
   ilegible) que LaunchServices resolvía con `open -a MacDown` → error -10810. Hábito
   nuevo: lanzar con `macdown` o `open -b net.omelas.macdown-remix`.
 
+### Auditoría de preferencias y features recuperadas
+- Auditoría de los 5 panes de preferencias (2 subagentes Explore): todos los controles
+  conectados, sin huérfanos; el pane Markdown solo expone extensiones que cmark-gfm
+  soporta (no quedaron toggles muertos de hoedown). El flag `experimentalWKWebView`
+  (default ON, sin UI) se mantiene como red de seguridad de la WebView legacy hasta
+  cerrar la migración WK. El typo `extensionStrikethough` se deja a propósito (6 archivos
+  + migración de prefs para un nombre interno invisible: riesgo > beneficio).
+- Features recuperadas (perdidas en la convergencia, no portadas de hoedown a cmark):
+  - **⌘L** para rotar el modo de vista (la convergencia lo había dejado en ⌃⌘0).
+  - **Resaltado `==x==` → `<mark>` y superíndice `^x^` → `<sup>`** vía postproceso del
+    markdown (cmark va con UNSAFE), respetando bloques y spans de código. 9 casos en test.
+  - **Navegación de enlaces en WKWebView**: un clic en un enlace a otro `.md` lo abría
+    como texto plano; se portó el `WebPolicyDelegate` legacy a un `WKNavigationDelegate`
+    que abre el documento en MacDown (ventana nueva, coherente con el modelo
+    editor+preview) y deja pasar los saltos a anclas. Merge a master en `78d38bf`.
+
 ### Pendiente
 - Fase C: canal de release Remix (`appcast-remix.xml` firmado EdDSA) + tag `v1.0-beta.1`.
 
