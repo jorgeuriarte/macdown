@@ -428,6 +428,11 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     self.preview.editingDelegate = self;
     self.preview.resourceLoadDelegate = self;
 
+    // Crea la WKWebView temprano (en contexto limpio del hilo principal), no dentro
+    // del callback de render, para evitar el crash de re-entrancia de WebKit al
+    // arrancar el WebProcess durante el primer loadFileURL.
+    [self setupWKPreviewIfNeeded];
+
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(editorTextDidChange:)
                    name:NSTextDidChangeNotification object:self.editor];
@@ -1402,10 +1407,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl
 {
-    [self setupWKPreviewIfNeeded];
-    if (!self.wkPreview)
-        return;
-
     // WKWebView no carga subrecursos file:// con loadHTMLString:baseURL:. Se
     // escribe el HTML a un fichero temporal en el directorio del documento (para
     // que resuelvan las rutas relativas del doc) y se carga con loadFileURL:
@@ -1436,8 +1437,17 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
                 encoding:NSUTF8StringEncoding error:NULL];
     }
     self.wkPreviewTempURL = tempURL;
-    [self.wkPreview loadFileURL:tempURL
-        allowingReadAccessToURL:[NSURL fileURLWithPath:@"/"]];
+
+    // Las operaciones de WKWebView (crear + loadFileURL) DEBEN ir en el hilo
+    // principal y no reentrantes: el render puede venir de una cola de fondo, y
+    // loadFileURL durante el arranque del WebProcess crashea con "lock recursively".
+    // Diferir a la cola principal rompe ambos problemas.
+    NSURL *finalURL = tempURL;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setupWKPreviewIfNeeded];
+        [self.wkPreview loadFileURL:finalURL
+            allowingReadAccessToURL:[NSURL fileURLWithPath:@"/"]];
+    });
 }
 
 - (void)webView:(WKWebView *)webView
