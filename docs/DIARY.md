@@ -55,8 +55,20 @@
     que abre el documento en MacDown (ventana nueva, coherente con el modelo
     editor+preview) y deja pasar los saltos a anclas. Merge a master en `78d38bf`.
 
-### Pendiente
-- Fase C: canal de release Remix (`appcast-remix.xml` firmado EdDSA) + tag `v1.0-beta.1`.
+### Fase C — release v1.0-beta.1 publicada
+- Canal de release propio: el workflow publica, en tags `v*-*`, una pre-release
+  "MacDown Remix vX" + genera `appcast-remix.xml` firmado con EdDSA (antes apuntaba al
+  `appcast-beta` experimental). El Info.plist ya apuntaba al canal Remix (`SUFeedURL`).
+  `install-latest-beta.sh` apunta al canal Remix y a `MacDown Remix.app`.
+- **Tag `v1.0-beta.1`** → pre-release publicada (build 106, `.zip`+`.dmg`), appcast firmado
+  y commiteado a master. Validado end-to-end con `install-latest-beta.sh` (descarga e
+  instala la 1.0-beta.1 desde el canal Remix).
+
+### Pendiente (hacia 1.0 final)
+- Notarización / Developer ID: sin ella el auto-update de Sparkle descarga pero no instala
+  (hoy se instala a mano con el script). Es el bloqueo real para el auto-update completo.
+- `WKURLSchemeHandler` (sustituir el HTML temporal del preview). Pulido cosmético de prefs
+  (typo `extensionStrikethough`, UI "Accessory") y eventual retirada del flag/legacy WebView.
 
 ## 2026-06-13 — Arranque del fork de mantenimiento
 

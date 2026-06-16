@@ -44,9 +44,9 @@ Que el modo WK (por defecto) sea coherente. Cada uno con su build.
 ### Fase C — Canal de release de Remix
 | # | Paso | Estado |
 |---|---|---|
-| C1 | Workflow de release para Remix: tags `v1.0-beta.N` → pre-release + `appcast-remix.xml` firmado (EdDSA). | ⏳ |
-| C2 | Actualizar `install-latest-beta.sh` para el canal Remix. | ⏳ |
-| C3 | **Tag `v1.0-beta.1`** → primera pre-release oficial de MacDown Remix. | ⏳ |
+| C1 | Workflow de release para Remix: tags `v1.0-beta.N` → pre-release + `appcast-remix.xml` firmado (EdDSA). | ✅ |
+| C2 | Actualizar `install-latest-beta.sh` para el canal Remix. | ✅ probado end-to-end |
+| C3 | **Tag `v1.0-beta.1`** → primera pre-release oficial de MacDown Remix. | ✅ build 106, publicada |
 
 ## Tras 1.0-beta (no en este goal)
 - `WKURLSchemeHandler` (quita el HTML temporal en disco; arregla imágenes relativas).
