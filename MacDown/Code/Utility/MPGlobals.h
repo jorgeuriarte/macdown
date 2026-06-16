@@ -8,15 +8,19 @@
 
 #import "version.h"
 
-// These should match the main bundle's values.
-static NSString * const kMPApplicationName = @"MacDown";
+// These should match the main bundle's values (MacDown Remix identity).
+static NSString * const kMPApplicationName = @"MacDown Remix";
 
 #ifdef DEBUG
-static NSString * const kMPApplicationBundleIdentifier = @"com.uranusjr.macdown-debug";
+static NSString * const kMPApplicationBundleIdentifier = @"net.omelas.macdown-remix-debug";
 #else
-static NSString * const kMPApplicationBundleIdentifier = @"com.uranusjr.macdown";
+static NSString * const kMPApplicationBundleIdentifier = @"net.omelas.macdown-remix";
 #endif
 
+// Suite de NSUserDefaults compartido entre la app y el helper de CLI (rendezvous
+// de ficheros a abrir). Se mantiene el dominio histórico a propósito: app y helper
+// usan esta misma constante, así que siempre coinciden, y no se migran las prefs
+// existentes del usuario. La identidad propia de prefs es un paso aparte.
 static NSString * const kMPApplicationSuiteName = @"com.uranusjr.macdown";
 
 static NSString * const MPCommandInstallationPath = @"/usr/local/bin/macdown";
