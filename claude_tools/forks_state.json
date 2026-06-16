@@ -1,0 +1,644 @@
+{
+  "generated_at": "2026-06-13 10:47 UTC",
+  "seeds": {
+    "MacDownApp/macdown": {
+      "repo": "MacDownApp/macdown",
+      "branch": "master",
+      "pushed_at": "2023-07-10T22:19:38Z",
+      "stars": 9767,
+      "archived": false,
+      "forks_total": 1146,
+      "active_candidates": 52,
+      "ahead_forks": {
+        "xhu96/macdown": {
+          "ahead": 6,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-06-04T23:51:39Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Modernize MacDown for Apple Silicon and macOS 11+",
+            "Clarify fork maintenance status",
+            "Remove stale translation badge",
+            "Add Albanian localization",
+            "Document fork changes and fix rendering preferences layout",
+            "Remove stale terminal preferences outlets"
+          ]
+        },
+        "duro/macdown": {
+          "ahead": 19,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-06-05T00:09:04Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Add opensFilesInPreviewOnly preference",
+            "Add MPShouldOpenFileInPreviewOnly decision helper",
+            "Add MPHasSavedSplitStateForAutosaveName probe",
+            "Add 'Show only the preview when opening files' preference checkbox",
+            "Open files in preview-only mode on first open when enabled",
+            "Fix out-of-bounds toolbar index read that crashed launch on modern Xcode",
+            "Fix Behavior box layout so the preview-only checkbox doesn't overlap",
+            "Use Expanded toolbar style so prefs panes stay left-aligned & visible on modern SDK",
+            "Commit local build-setup edits for a build-ready checkout",
+            "Size preferences window to each pane's Auto Layout fitting height",
+            "Let the Editor Behavior box self-size instead of clipping at 175pt",
+            "Anchor the Markdown preferences pane so it self-sizes",
+            "Let the Editor Behavior box resize its content so the pane self-sizes",
+            "Add pure helpers for preferred window size (clamp + should-apply)",
+            "Add preferred-window-size preferences (toggle + width/height)",
+            "Open new document windows at the preferred size when set",
+            "Add capture action + refresh for preferred window size",
+            "Add preferred-window-size controls to General preferences",
+            "Clamp preferred size to main screen when window has no screen yet"
+          ]
+        },
+        "djpadz/macdown": {
+          "ahead": 3,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-06-01T21:09:24Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Getting it to build on macOS 26.",
+            "Fixed a bounding error and removed Sparkle",
+            "Some cleanup and using node 14 for GitHub-style-generator"
+          ]
+        },
+        "RezaAmbler/macdown_arm": {
+          "ahead": 10,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-30T00:51:58Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Enable native arm64 (Apple Silicon) build",
+            "Add font zoom and Light/Dark/Sepia view modes",
+            "Fix crash when clicking segmented toolbar groups",
+            "Make font zoom also scale the rendered preview",
+            "Make in-document TOC heading links work",
+            "Add Sparkle auto-update feed pointing at this fork's GitHub releases",
+            "Add release.sh to automate signed arm64 GitHub releases",
+            "release.sh: stamp version deterministically from git",
+            "Release 0.8.0",
+            "Release 0.8.1"
+          ]
+        },
+        "johnchlorophyll/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-26T16:34:12Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Fix infinite loop in MPToolbarController toolbarDefaultItemIdentifiers"
+          ]
+        },
+        "zhanglan332/mydown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-26T14:13:52Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Add local startup script and Ruby/CocoaPods compatibility fixes"
+          ]
+        },
+        "nyimbi/macdown": {
+          "ahead": 12,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-17T22:43:15Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Refresh clean documents after external file edits",
+            "Unify export customization options",
+            "Add DOCX and PPTX export backends",
+            "Print PDF exports from customized HTML",
+            "Add styled export presets and cover pages",
+            "Polish DOCX cover and body rendering",
+            "Harden PPTX packages for native renderers",
+            "Use the system CocoaPods toolchain",
+            "Let business documents compose reusable Markdown sources",
+            "Reduce document-window clutter with native tab groups",
+            "Refresh master documents when included files change",
+            "Keep the business improvement list implementation-bound"
+          ]
+        },
+        "liyoro/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-17T02:10:31Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "适配 macOS Tahoe 26.5"
+          ]
+        },
+        "plateaukao/macdown": {
+          "ahead": 6,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-06-10T16:30:40Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Render mermaid diagrams: upgrade to mermaid v11",
+            "Merge pull request #1 from plateaukao/mermaid-v11-rendering",
+            "Add default-layout preference and fix preferences window UI",
+            "Merge pull request #2 from plateaukao/default-layout-pref",
+            "Hide formatting toolbar items in preview-only mode; add table borders to themes",
+            "Theme mermaid diagrams for dark preview styles"
+          ]
+        },
+        "realid/macdown": {
+          "ahead": 2,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-05-06T05:45:56Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Modernize macOS build and fix release startup",
+            "Refresh README for forked macOS arm64 builds"
+          ]
+        },
+        "rtbforge/macdown": {
+          "ahead": 2,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-04-30T20:52:08Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Minor updates to get working in 2026",
+            "Rewrite Plan"
+          ]
+        },
+        "treehousetim/macdown": {
+          "ahead": 9,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-04-09T21:51:35Z",
+          "stars": 1,
+          "branch": "master",
+          "commits": [
+            "Fix infinite loop / hang on launch from out-of-bounds array reads in toolbar setup",
+            "Reload document automatically when the file changes on disk",
+            "Regenerate Podfile.lock and Pods build phase against CocoaPods 1.16.2",
+            "Add Quick Look Preview Extension target so .md files preview from Finder",
+            "Prep treehousetim release: Developer ID signing, strip Sparkle, rebrand help",
+            "Add custom About window with fork attribution and bundled licenses",
+            "Bump version.txt to 1.0.1 for post-release dev builds",
+            "Drop git-driven Update Build Number, hardcode version in source plist",
+            "Add Tools/release.sh for one-command release builds"
+          ]
+        },
+        "mfbergmann/macdown-swift": {
+          "ahead": 10,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-06-08T18:33:56Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Port MacDown to Swift with cross-platform macOS/iOS support",
+            "Make SwiftPM macOS/iOS app targets build and run",
+            "Add macOS .app packaging, signing, and release pipeline",
+            "Fix entitlements parse error during codesign",
+            "Add live editor syntax highlighting and coordinate default themes",
+            "New app icon: Markdown M-down mark with a Swift-orange arrow",
+            "Auto-detect Developer ID in build-app.sh for turnkey local signing",
+            "Only auto-publish releases from CI when signing secrets are present",
+            "Merge pull request #1 from mfbergmann/claude/port-macdown-swift-fIBgJ",
+            "Add ROADMAP.md with prioritized feature plan"
+          ]
+        },
+        "SiggeMcKvack/macdown": {
+          "ahead": 9,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-03-26T13:23:22Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Build arm64-only, bump minimum to macOS 11.0, update Sparkle to 2.x",
+            "Update dependencies and fix preferences layout",
+            "Replace hoedown with cmark-gfm for Markdown rendering",
+            "Switch to official github/cmark-gfm repository",
+            "Refresh GitHub styles and add GitHub Dark theme",
+            "Add GitLab light and dark themes",
+            "Bump version to 0.8",
+            "Bump version.txt to 0.8.1",
+            "Fix out-of-bounds array access in toolbarDefaultItemIdentifiers:"
+          ]
+        },
+        "Wirtzer/Markly": {
+          "ahead": 44,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-03-25T19:38:53Z",
+          "stars": 4,
+          "branch": "markly",
+          "commits": [
+            "Add default view mode preference and toolbar view mode switcher",
+            "Update README for MacDown v2",
+            "Add project roadmap to README",
+            "Add Phase 1 features: smart view modes, sidebar, and tabs",
+            "Fix build: add missing MPGlobals.h import to MPDocument.m",
+            "Add Phase 2 features: Focus mode, Typewriter mode, writing stats, DOCX export",
+            "Add Phase 3: WikiLinks, Command Palette, prose tools, preview themes",
+            "Fix Focus mode to use layout manager temporary attributes",
+            "Add checkmarks for active toggle states in menus and command palette",
+            "Make filler word highlighting a live toggle with counter",
+            "Move Highlight Filler Words to top of command palette",
+            "Fix filler word detection to use regex instead of NSLinguisticTagger",
+            "Highlight filler words in both editor and preview panes",
+            "Categorize weasel words with color-coded highlights per Amazon writing guide",
+            "Make issue counter clickable with per-category breakdown",
+            "Color-code dots in issue dropdown and improve readability",
+            "Make issue counter readable with dark pill background and white text",
+            "Fix WikiLinks: inject CSS into all themes and mark unsaved docs as missing",
+            "Fix Graphviz and Mermaid checkboxes always being disabled",
+            "Fix Graphviz and Mermaid checkbox layout — move to own row",
+            "Fix Rendering preferences layout — Graphviz and Mermaid on own rows",
+            "Fix Rendering prefs layout with proper auto-layout constraints",
+            "Double Rendering preferences pane width to 810px",
+            "Fix CSS checkbox overlap and mermaid init script",
+            "Auto-enable syntax highlighting when Mermaid or Graphviz is turned on",
+            "Always enable Mermaid, Graphviz, and syntax highlighting",
+            "Rename app from ReadDown to Markly",
+            "Rebrand help and README to Markly v1.0.0, remove CONTRIBUTING.md",
+            "Rename all MacDown references in menus and UI to Markly",
+            "Remove stale Contributing references from first launch and menu",
+            "Remove open source language, reserve rights on new features",
+            "Update deployment target to macOS 10.13 for modern Xcode compatibility",
+            "Add LICENSE.md — All rights reserved for Markly additions",
+            "Update README with Markly repo name and install instructions",
+            "Rename MacDown/MacDownTests/macdown-cmd folders to Markly/MarklyTests/markly-cmd",
+            "Remove contribute.md resource and showContributing method completely",
+            "Rename MacDown.xcodeproj and MacDown.xcworkspace to Markly",
+            "Fix toolbar crash on launch — out-of-bounds array access in toolbarDefaultItemIdentifiers",
+            "Fix outline navigation — respond to single click instead of double click",
+            "Update Mermaid to improve diagram rendering support",
+            "Add DMG build script and entitlements for distribution",
+            "Fix sidebar toggle and outline navigation in all view modes",
+            "Add GitHub-based update checker, update About page for Markly",
+            "Strip markdown formatting from update dialog release notes"
+          ]
+        },
+        "shingu-m/macdown": {
+          "ahead": 3,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-02-28T11:42:53Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "fix: correct Open Recent list on macOS Tahoe",
+            "fix: restore preferences window layout on macOS Tahoe",
+            "fix: prevent out-of-bounds crash in toolbar on macOS Tahoe"
+          ]
+        },
+        "igorschlum/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-02-11T19:52:23Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Restore OpenRecent"
+          ]
+        },
+        "aseelye/macdown": {
+          "ahead": 17,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-01-13T22:48:16Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Disable autosave-in-place; fix heading/list rendering",
+            "Improve rendering stability and cleanup",
+            "close program on window close",
+            "Add GitHub Actions CI",
+            "CI: generate pmh_parser.c",
+            "update deploy targets to 10.15+",
+            "  Remove Sparkle; refactor document + rendering",
+            "add audit working doc",
+            "Unsafe toolbar action invocation (wrong IMP signature)",
+            "Fixing  is a “god object” (multi-responsibility + oversized)",
+            "Fix Observer lifecycle safety (KVO/notifications) / F-003",
+            "Preference naming debt (misspellings + aliases leak into core logic) / F-004",
+            "Editor view state persistence via KVO/KVC (leaky layering) / F-005",
+            "Renderer flags ownership is split between preferences and renderer / F-006",
+            "Style inconsistencies in touched files (Allman vs K&R) / F-007",
+            "Confusing selector name valueForKey:fromQueryItems: / F-008",
+            "URL scheme handler has unfinished feature (line/column ignored) / F-009"
+          ]
+        },
+        "jowtron/macdown": {
+          "ahead": 8,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-01-14T03:45:38Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Fix black box rendering when hiding editor/preview pane",
+            "Fix CI: use macos-14 and skip Bundler",
+            "Use macos-13 with Xcode 14.3 for libarclite compatibility",
+            "Prevent build cancellation with concurrency settings",
+            "Use macos-latest with deployment target 10.13 to avoid libarclite",
+            "Fix submodule initialization",
+            "Add parser generation step",
+            "Build universal binary for Intel and Apple Silicon Macs"
+          ]
+        },
+        "dsandor/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-12-25T22:15:21Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "refactored to build"
+          ]
+        },
+        "alicela1n/macdown": {
+          "ahead": 2,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2026-01-19T06:03:37Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Fix some compiler warnings",
+            "MacDown/Code/Application/MPToolbarController.m: The macOS SDK should calculate MaxSize automatically now"
+          ]
+        },
+        "fisher158163/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-10-31T09:45:03Z",
+          "stars": 1,
+          "branch": "master",
+          "commits": [
+            "Updated the App icon"
+          ]
+        },
+        "tikkal/macdown-arm64": {
+          "ahead": 12,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-08-20T20:12:46Z",
+          "stars": 11,
+          "branch": "master",
+          "commits": [
+            "Update build deps, and build for Mac silicon (arm64)",
+            "add venv",
+            "test commit",
+            "add aider",
+            "Merge branch 'master' of github.com:tikkal/macdown",
+            "comment for aider",
+            "Build for Arm64 on MacOS Silicon. Exclude x86 Builds.  (#1)",
+            "cleanup (#2)",
+            "Update contribute.md",
+            "Update README.md",
+            "Update links to arm64 release",
+            "Update for arm64 links"
+          ]
+        },
+        "David-Talaga/macdown": {
+          "ahead": 3,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-07-16T15:41:25Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Recompiled with Xcode Version 16.4 (16F6)",
+            "Updated dependencies for New Compilation",
+            "Updated for Apple Silicon"
+          ]
+        },
+        "lisanet/macdown": {
+          "ahead": 3,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-06-24T07:28:47Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "update sparkle",
+            "fix: bad access on Apple Silicon due to different calling convention",
+            "Merge pull request #1 from gnattu/master"
+          ]
+        },
+        "emsspree/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-04-13T03:12:17Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "remove broken LPROJs"
+          ]
+        },
+        "Ulziikh/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-03-04T07:00:11Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "markdown-Ulziikhishig.md"
+          ]
+        },
+        "trailblazr/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-01-29T20:28:37Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Made the whole thing compile again in Apple M1, fixing the RECENT documents bug."
+          ]
+        },
+        "daviejaneway/Smacdown": {
+          "ahead": 2,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2024-10-25T18:19:58Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "fix: Upgrade macOS deployment target to 12.0 and get the project running",
+            "feature: Port JJPluralForm to Swift in a local SPM module & integrate back into app code"
+          ]
+        },
+        "lucy-jane/macdown": {
+          "ahead": 18,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2023-11-20T14:01:32Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Bump minimatch from 3.0.4 to 3.0.8 in /Tools/GitHub-style-generator",
+            "Bump travis from 1.10.0 to 1.11.1",
+            "Bump semver and node-sass in /Tools/GitHub-style-generator",
+            "Bump scss-tokenizer and node-sass in /Tools/GitHub-style-generator",
+            "Merge pull request #12 from lucy-jane/dependabot/npm_and_yarn/Tools/GitHub-style-generator/scss-tokenizer-and-node-sass-0.4.3",
+            "Merge pull request #10 from lucy-jane/dependabot/npm_and_yarn/Tools/GitHub-style-generator/semver-and-node-sass-7.5.4",
+            "Bump addressable from 2.7.0 to 2.8.4",
+            "Bump cocoapods-downloader from 1.4.0 to 1.6.3",
+            "Merge pull request #14 from lucy-jane/dependabot/bundler/cocoapods-downloader-1.6.3",
+            "Bump tzinfo from 1.2.9 to 1.2.11",
+            "Merge pull request #15 from lucy-jane/dependabot/bundler/tzinfo-1.2.11",
+            "Merge pull request #13 from lucy-jane/dependabot/bundler/addressable-2.8.4",
+            "Merge pull request #7 from lucy-jane/dependabot/bundler/travis-1.11.1",
+            "Merge pull request #3 from lucy-jane/dependabot/npm_and_yarn/Tools/GitHub-style-generator/minimatch-3.0.8",
+            "Bump cocoapods from 1.10.1 to 1.12.1",
+            "Merge pull request #1 from lucy-jane/dependabot/bundler/cocoapods-1.12.1",
+            "travis update",
+            "Create objective-c-xcode.yml"
+          ]
+        },
+        "RandyMcMillan/macdown": {
+          "ahead": 1,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2023-11-18T17:54:03Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "GNUmakefile"
+          ]
+        },
+        "jamesalfei/macdown": {
+          "ahead": 8,
+          "behind": 0,
+          "status": "ahead",
+          "pushed_at": "2025-06-11T21:17:02Z",
+          "stars": 0,
+          "branch": "master",
+          "commits": [
+            "Bump hosted-git-info",
+            "Merge pull request #26 from jamesalfei/dependabot/npm_and_yarn/Tools/GitHub-style-generator/npm_and_yarn-683b1b7287",
+            "Bump minimatch (#27)",
+            "Bump path-parse (#25)",
+            "Bump qs in /Tools/GitHub-style-generator in the npm_and_yarn group (#23)",
+            "Bump tar in /Tools/GitHub-style-generator in the npm_and_yarn group (#22)",
+            "Bump the npm_and_yarn group (#21)",
+            "Bump node-sass (#20)"
+          ]
+        }
+      }
+    },
+    "plateaukao/macdown": {
+      "repo": "plateaukao/macdown",
+      "branch": "master",
+      "pushed_at": "2026-06-10T16:30:40Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "SiggeMcKvack/macdown": {
+      "repo": "SiggeMcKvack/macdown",
+      "branch": "master",
+      "pushed_at": "2026-03-26T13:23:22Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "nyimbi/macdown": {
+      "repo": "nyimbi/macdown",
+      "branch": "master",
+      "pushed_at": "2026-05-17T22:43:15Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "RezaAmbler/macdown_arm": {
+      "repo": "RezaAmbler/macdown_arm",
+      "branch": "master",
+      "pushed_at": "2026-05-30T00:51:58Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "treehousetim/macdown": {
+      "repo": "treehousetim/macdown",
+      "branch": "master",
+      "pushed_at": "2026-04-09T21:51:35Z",
+      "stars": 1,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "duro/macdown": {
+      "repo": "duro/macdown",
+      "branch": "master",
+      "pushed_at": "2026-06-05T00:09:04Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "xhu96/macdown": {
+      "repo": "xhu96/macdown",
+      "branch": "master",
+      "pushed_at": "2026-06-04T23:51:39Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "Wirtzer/Markly": {
+      "repo": "Wirtzer/Markly",
+      "branch": "markly",
+      "pushed_at": "2026-03-25T19:38:53Z",
+      "stars": 4,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    },
+    "mfbergmann/macdown-swift": {
+      "repo": "mfbergmann/macdown-swift",
+      "branch": "master",
+      "pushed_at": "2026-06-08T18:33:56Z",
+      "stars": 0,
+      "archived": false,
+      "forks_total": 0,
+      "active_candidates": 0,
+      "ahead_forks": {}
+    }
+  }
+}

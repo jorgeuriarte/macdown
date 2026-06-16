@@ -1,3 +1,39 @@
+# MacDown Remix
+
+> A community maintenance fork — **the best of several MacDown worlds, in one.**
+
+[MacDown](https://github.com/MacDownApp/macdown), the macOS Markdown editor by
+[Tzu-ping Chung](https://uranusjr.com) (MIT), has been unmaintained since 2023 and no
+longer builds or launches on modern macOS / Apple Silicon. **MacDown Remix** keeps it
+alive and gathers the best contributions scattered across its forks, evolving it where
+needed.
+
+**Where it draws from** (full attribution in [`docs/CREDITS.md`](docs/CREDITS.md) and in
+the app's "About MacDown Remix" window):
+
+| Piece | Source |
+|---|---|
+| Codebase | [plateaukao/macdown](https://github.com/plateaukao/macdown) — the most recent active fork with the original Objective-C architecture |
+| Render engine | [cmark-gfm](https://github.com/github/cmark-gfm) (GitHub's CommonMark + GFM), integrated from [SiggeMcKvack/macdown](https://github.com/SiggeMcKvack/macdown) — AST with source positions |
+| Preview | Migration to **WKWebView** (modern WebKit) with two-way synced scrolling |
+| GitHub-style TOC anchors | [Reza Ambler](https://github.com/RezaAmbler/macdown_arm) |
+| Diagrams / modes | Mermaid v11, quick view modes (⌃⌘1/2/3), modern macOS launch fixes (community) |
+
+It honors the **MIT license** and the **original copyright** (© 2014–2020 Tzu-ping Chung).
+It does not replace or impersonate the official MacDown: it has its own identity
+(`net.omelas.macdown-remix`) and its own releases.
+
+> ⚠️ cmark-gfm engine trade-off: three hoedown extensions are lost (highlight `==`,
+> superscript `^`, underline `_`) in exchange for the modern AST that enables everything else.
+
+The project periodically tracks the fork ecosystem (the original and its derivatives) so
+nothing good is missed — see [`docs/FORKS.md`](docs/FORKS.md) and
+`claude_tools/track_forks.sh`.
+
+---
+
+Below is the **original MacDown README**:
+
 # MacDown
 
 [![](https://img.shields.io/github/release/MacDownApp/macdown.svg)](http://macdown.uranusjr.com/download/latest/)

@@ -1,0 +1,29 @@
+# Repos semilla a rastrear por claude_tools/track_forks.py
+# Formato:  owner/repo[:branch]      (# = comentario, líneas en blanco ignoradas)
+#
+# El tracker, para CADA seed, lista sus forks, detecta los que tienen commits
+# propios (ahead del seed) y reúne sus mensajes de commit. Así cubrimos tanto
+# el proyecto original abandonado como las líneas evolucionadas/migradas: si
+# alguna de ellas se convierte en el nuevo "centro de gravedad", sus propios
+# forks empiezan a aparecer aquí automáticamente.
+
+# --- Proyecto original (abandonado desde 2023-07) ---
+MacDownApp/macdown
+
+# --- Nuestra propia línea: MacDown Remix (para detectar forks de Remix) ---
+jorgeuriarte/macdown
+
+# --- Nuestra base ---
+plateaukao/macdown
+
+# --- Forks modernizados / con features (Objective-C, mergeables) ---
+SiggeMcKvack/macdown
+nyimbi/macdown
+RezaAmbler/macdown_arm
+treehousetim/macdown
+duro/macdown
+xhu96/macdown
+
+# --- Líneas migradas / rebrandeadas (referencia, no mergeables directamente) ---
+Wirtzer/Markly:markly
+mfbergmann/macdown-swift

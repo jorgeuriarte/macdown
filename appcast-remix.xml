@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>MacDown Remix</title>
+    <link>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-remix.xml</link>
+    <description>Canal de actualizaciones de MacDown Remix. Aún sin releases publicadas (las builds de la fase de migración WKWebView se prueban como artefactos de CI, no por Sparkle).</description>
+    <language>en</language>
+  </channel>
+</rss>
