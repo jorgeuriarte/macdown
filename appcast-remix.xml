@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>MacDown Remix</title>
+    <title>MacDown (appcast-remix)</title>
     <link>https://raw.githubusercontent.com/jorgeuriarte/macdown/master/appcast-remix.xml</link>
-    <description>Canal de actualizaciones de MacDown Remix. Aún sin releases publicadas (las builds de la fase de migración WKWebView se prueban como artefactos de CI, no por Sparkle).</description>
-    <language>en</language>
+    <description>Actualizaciones del fork de mantenimiento de MacDown.</description>
+    <language>es</language>
+    <item>
+      <title>Versión 1.0-beta.1</title>
+      <pubDate>Tue, 16 Jun 2026 10:20:33 +0000</pubDate>
+      <sparkle:version>106</sparkle:version>
+      <sparkle:shortVersionString>1.0-beta.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/jorgeuriarte/macdown/releases/download/v1.0-beta.1/MacDown.zip"
+        sparkle:edSignature="ysBANjq96a3tu486zco8BaVj5S/O3HeIH7/3hn9Ll1s+/WFihdAdC1DRt0bPkhui+BWggRlcH++Ry4wS2bEBDg==" length="8522381"
+        type="application/octet-stream" />
+    </item>
   </channel>
 </rss>
