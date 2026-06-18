@@ -287,6 +287,27 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 }
 
 
+// WKWebView del visor. Captura el Cmd+F (performFindPanelAction:) cuando el visor
+// tiene el foco y lo reenvía al documento, que muestra el find bar propio — si no,
+// WebKit/el editor se lo comen y el buscador del visor no aparece. Acepta primer
+// respondedor para que el clic en el visor le dé el foco.
+@interface MPWKWebView : WKWebView
+@property (weak) id findActionTarget;
+@end
+
+@implementation MPWKWebView
+- (BOOL)acceptsFirstResponder { return YES; }
+- (void)performFindPanelAction:(id)sender
+{
+    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
+    if (f) { fprintf(f, "[MPWKWebView] perform tag=%ld target=%d\n",
+        (long)[sender tag], self.findActionTarget != nil); fclose(f); }
+    if ([self.findActionTarget respondsToSelector:@selector(performFindPanelAction:)])
+        [self.findActionTarget performFindPanelAction:sender];
+}
+@end
+
+
 @implementation MPDocument
 
 #pragma mark - Accessor
@@ -1341,8 +1362,8 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
     NSString *linkedJS =
         @"(function(){"
         @"var st=document.createElement('style');"
-        @"st.textContent='.macdown-linked{background:rgba(255,221,87,0.22);border-radius:3px;"
-        @"box-shadow:0 0 0 3px rgba(255,221,87,0.22);}';"
+        @"st.textContent='.macdown-linked{outline:2px solid rgba(120,160,255,0.75);"
+        @"outline-offset:3px;border-radius:2px;}';"
         @"(document.head||document.documentElement).appendChild(st);"
         @"function clr(){var n=document.querySelectorAll('.macdown-linked');"
         @"for(var i=0;i<n.length;i++)n[i].classList.remove('macdown-linked');}"
@@ -1365,8 +1386,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
     config.userContentController = ucc;
 
-    WKWebView *wk = [[WKWebView alloc] initWithFrame:self.preview.bounds
-                                       configuration:config];
+    MPWKWebView *wk = [[MPWKWebView alloc] initWithFrame:self.preview.bounds
+                                           configuration:config];
+    wk.findActionTarget = self;
     wk.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     wk.navigationDelegate = self;
     [self.preview addSubview:wk];
@@ -1380,6 +1402,10 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 // visor, así que buscamos ahí con un find bar propio (WKWebView no trae uno).
 - (void)performFindPanelAction:(id)sender
 {
+    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
+    if (f) { fprintf(f, "[MPDocument] perform tag=%ld usesWK=%d wk=%d fr=%s\n",
+        (long)[sender tag], [self usesWKWebView], self.wkPreview != nil,
+        self.editor.window.firstResponder.className.UTF8String); fclose(f); }
     if (![self usesWKWebView] || !self.wkPreview)
         return;
     switch ([sender tag])
@@ -1442,6 +1468,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 - (void)mp_showWKFindBar
 {
+    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
+    if (f) { fprintf(f, "[mp_showWKFindBar] preview=%d host.bounds=%@\n",
+        self.preview != nil, NSStringFromRect(self.preview.bounds).UTF8String); fclose(f); }
     [self mp_buildWKFindBarIfNeeded];
     NSView *host = self.preview;     // contenedor donde vive el wkPreview
     if (self.wkFindBar.superview != host)
