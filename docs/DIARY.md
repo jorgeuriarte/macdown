@@ -1,5 +1,30 @@
 # Diario de desarrollo — MacDown (fork propio)
 
+## 2026-06-18 — Buscador en el visor + selección conectada por bloque
+
+### Qué se hizo
+- **Buscador en el visor (⌘F)**: WKWebView no trae find bar; se añade uno propio
+  (campo + ‹/›/✕, Enter busca, Esc cierra) sobre `findString:withConfiguration:`
+  (macOS 11+). Una subclase `MPWKWebView` captura `performFindPanelAction:` y lo
+  reenvía al documento, para que el ⌘F llegue al visor cuando tiene el foco (antes lo
+  interceptaban el editor o WebKit). El find del editor (NSTextView) sigue intacto.
+- **Selección conectada editor↔visor por bloque**: se activa `CMARK_OPT_SOURCEPOS`
+  (cada elemento HTML lleva `data-sourcepos="L:C-L:C"`). Mover el cursor en el editor
+  recuadra el bloque equivalente en el visor; clicar en el visor recuadra el bloque y
+  lleva el cursor allí. El recuadro es un **outline fino** en AMBOS lados (visor por
+  CSS, editor por `drawRect` en `MPEditorView`), no un fondo: la selección de texto
+  queda **reservada** para una futura sincronización de selección real. Anti-bucle por
+  timestamp. Es el primer peldaño de la visión de edición inline. Merge en `e212b39`.
+
+### Decisiones
+- El ⌘F es contextual al panel con foco (estándar); en el visor requiere clic previo.
+- Mapeo por **bloque** (lo que da `sourcepos`), no por carácter; el desfase de líneas
+  por math display multilínea es un caso borde aceptado.
+
+### Pendiente
+- Sincronización de selección real (carácter/palabra) — usaría el aspecto "seleccionado".
+- Contador "X de Y" en el buscador del visor. Retirar el flag/legacy WebView en 1.0.
+
 ## 2026-06-16 — Fase B: convergencia en línea única (cmark-gfm + WKWebView)
 
 ### Qué se hizo
