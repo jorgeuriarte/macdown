@@ -1639,7 +1639,9 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         {
             self.suppressLinkedSelectionUntil =
                 [NSDate timeIntervalSinceReferenceDate] + 0.35;
-            self.editor.selectedRange = r;
+            // Solo llevamos el cursor al inicio del bloque (sin seleccionar el texto):
+            // la selección queda reservada para la futura sincronización de selección.
+            self.editor.selectedRange = NSMakeRange(r.location, 0);
             [self.editor scrollRangeToVisible:r];
         }
     }
