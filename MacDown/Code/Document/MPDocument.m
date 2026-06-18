@@ -299,9 +299,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 - (BOOL)acceptsFirstResponder { return YES; }
 - (void)performFindPanelAction:(id)sender
 {
-    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
-    if (f) { fprintf(f, "[MPWKWebView] perform tag=%ld target=%d\n",
-        (long)[sender tag], self.findActionTarget != nil); fclose(f); }
     if ([self.findActionTarget respondsToSelector:@selector(performFindPanelAction:)])
         [self.findActionTarget performFindPanelAction:sender];
 }
@@ -1367,20 +1364,23 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         @"(document.head||document.documentElement).appendChild(st);"
         @"function clr(){var n=document.querySelectorAll('.macdown-linked');"
         @"for(var i=0;i<n.length;i++)n[i].classList.remove('macdown-linked');}"
+        @"function pb(t,el){var a=el.getAttribute('data-sourcepos');"
+        @"var m=a&&a.match(/^(\\d+):\\d+-(\\d+):\\d+/);"
+        @"if(m&&window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
+        @"window.webkit.messageHandlers.macdown.postMessage({type:t,startLine:+m[1],endLine:+m[2]});}"
         @"window.macdownHighlightLines=function(start,end){clr();if(!start)return;"
         @"var els=document.querySelectorAll('[data-sourcepos]'),best=null,bs=1e9;"
         @"for(var i=0;i<els.length;i++){var a=els[i].getAttribute('data-sourcepos');"
         @"var m=a&&a.match(/^(\\d+):\\d+-(\\d+):\\d+/);if(!m)continue;"
         @"var s=+m[1],e=+m[2];if(s<=start&&start<=e){var sp=e-s;if(sp<bs){bs=sp;best=els[i];}}}"
-        @"if(best)best.classList.add('macdown-linked');};"
+        @"if(best){best.classList.add('macdown-linked');pb('block',best);}"
+        @"else if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
+        @"window.webkit.messageHandlers.macdown.postMessage({type:'block',startLine:0,endLine:0});};"
         @"document.addEventListener('selectionchange',function(){"
         @"var sel=window.getSelection();if(!sel||sel.rangeCount===0)return;"
         @"var node=sel.anchorNode;if(node&&node.nodeType===3)node=node.parentElement;"
         @"while(node&&!(node.getAttribute&&node.getAttribute('data-sourcepos')))node=node.parentElement;"
-        @"if(!node)return;var a=node.getAttribute('data-sourcepos');"
-        @"var m=a&&a.match(/^(\\d+):\\d+-(\\d+):\\d+/);if(!m)return;"
-        @"if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
-        @"window.webkit.messageHandlers.macdown.postMessage({type:'selection',startLine:+m[1],endLine:+m[2]});"
+        @"if(!node)return;clr();node.classList.add('macdown-linked');pb('selection',node);"
         @"});})();";
     [ucc addUserScript:[[WKUserScript alloc] initWithSource:linkedJS
         injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
@@ -1402,10 +1402,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 // visor, así que buscamos ahí con un find bar propio (WKWebView no trae uno).
 - (void)performFindPanelAction:(id)sender
 {
-    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
-    if (f) { fprintf(f, "[MPDocument] perform tag=%ld usesWK=%d wk=%d fr=%s\n",
-        (long)[sender tag], [self usesWKWebView], self.wkPreview != nil,
-        self.editor.window.firstResponder.className.UTF8String); fclose(f); }
     if (![self usesWKWebView] || !self.wkPreview)
         return;
     switch ([sender tag])
@@ -1468,9 +1464,6 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 
 - (void)mp_showWKFindBar
 {
-    FILE *f = fopen("/tmp/macdown-find.log", "a");   // [debug temporal]
-    if (f) { fprintf(f, "[mp_showWKFindBar] preview=%d host.bounds=%@\n",
-        self.preview != nil, NSStringFromRect(self.preview.bounds).UTF8String); fclose(f); }
     [self mp_buildWKFindBarIfNeeded];
     NSView *host = self.preview;     // contenedor donde vive el wkPreview
     if (self.wkFindBar.superview != host)
@@ -1631,19 +1624,24 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             [self refreshWKPreviewMetricsThen:^{ [weak syncScrollersWK]; }];
         }
     }
-    else if ([type isEqualToString:@"selection"])
+    else if ([type isEqualToString:@"block"] || [type isEqualToString:@"selection"])
     {
-        // Visor→editor: refleja en el editor el bloque seleccionado en el visor.
-        if ([NSDate timeIntervalSinceReferenceDate] < self.suppressLinkedSelectionUntil)
-            return;
-        NSRange r = [self mp_editorCharRangeForLines:[body[@"startLine"] integerValue]
-                                                  to:[body[@"endLine"] integerValue]];
-        if (r.location == NSNotFound)
-            return;
-        self.suppressLinkedSelectionUntil =
-            [NSDate timeIntervalSinceReferenceDate] + 0.35;
-        self.editor.selectedRange = r;
-        [self.editor scrollRangeToVisible:r];
+        // Mapeo por bloque. "block" viene de mover el cursor en el editor (el visor ya
+        // se recuadró por JS; aquí recuadramos el editor). "selection" viene de un clic
+        // en el visor (recuadra el editor y además lleva el cursor allí).
+        NSInteger startLine = [body[@"startLine"] integerValue];
+        NSRange r = (startLine >= 1)
+            ? [self mp_editorCharRangeForLines:startLine to:[body[@"endLine"] integerValue]]
+            : NSMakeRange(NSNotFound, 0);
+        self.editor.linkedBlockRange = r;     // recuadro en el editor (o lo limpia)
+        if ([type isEqualToString:@"selection"] && r.location != NSNotFound
+            && [NSDate timeIntervalSinceReferenceDate] >= self.suppressLinkedSelectionUntil)
+        {
+            self.suppressLinkedSelectionUntil =
+                [NSDate timeIntervalSinceReferenceDate] + 0.35;
+            self.editor.selectedRange = r;
+            [self.editor scrollRangeToVisible:r];
+        }
     }
 }
 
