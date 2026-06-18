@@ -217,4 +217,39 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     [self setFrameSize:self.frame.size];    // Force size update.
 }
 
+
+#pragma mark - Selección conectada (recuadro del bloque activo)
+
+@synthesize linkedBlockRange = _linkedBlockRange;
+
+- (void)setLinkedBlockRange:(NSRange)range
+{
+    if (NSEqualRanges(range, _linkedBlockRange))
+        return;
+    _linkedBlockRange = range;
+    self.needsDisplay = YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+    [super drawRect:dirtyRect];
+    if (_linkedBlockRange.length == 0 || _linkedBlockRange.location == NSNotFound)
+        return;
+    if (NSMaxRange(_linkedBlockRange) > self.string.length)
+        return;
+    NSLayoutManager *lm = self.layoutManager;
+    NSTextContainer *tc = self.textContainer;
+    NSRange glyphRange =
+        [lm glyphRangeForCharacterRange:_linkedBlockRange actualCharacterRange:NULL];
+    NSRect r = [lm boundingRectForGlyphRange:glyphRange inTextContainer:tc];
+    NSPoint origin = self.textContainerOrigin;
+    r.origin.x += origin.x;
+    r.origin.y += origin.y;
+    NSRect box = NSInsetRect(r, -3.0, -1.0);
+    NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:box xRadius:3 yRadius:3];
+    path.lineWidth = 2.0;
+    [[NSColor colorWithRed:0.47 green:0.63 blue:1.0 alpha:0.75] setStroke];
+    [path stroke];
+}
+
 @end

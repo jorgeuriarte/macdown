@@ -242,6 +242,14 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 @property CGFloat wkPreviewVisibleHeight;   // alto visible del viewport (px CSS)
 @property NSTimeInterval suppressPreviewScrollUntil;  // anti-bucle editor↔preview
 @property (copy) NSString *wkPreviewID;     // id único del temporal por documento
+
+// Find bar del visor (búsqueda en el WKWebView con findString:).
+@property (strong) NSView *wkFindBar;
+@property (strong) NSSearchField *wkFindField;
+@property (strong) NSTextField *wkFindStatus;
+
+// Selección conectada editor↔visor (mapeo por bloque vía data-sourcepos).
+@property NSTimeInterval suppressLinkedSelectionUntil;  // anti-bucle de selección
 - (BOOL)usesWKWebView;
 - (void)setupWKPreviewIfNeeded;
 - (void)loadHTMLInWKWebView:(NSString *)html baseURL:(NSURL *)baseUrl;
@@ -277,6 +285,24 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         }
     };
 }
+
+
+// WKWebView del visor. Captura el Cmd+F (performFindPanelAction:) cuando el visor
+// tiene el foco y lo reenvía al documento, que muestra el find bar propio — si no,
+// WebKit/el editor se lo comen y el buscador del visor no aparece. Acepta primer
+// respondedor para que el clic en el visor le dé el foco.
+@interface MPWKWebView : WKWebView
+@property (weak) id findActionTarget;
+@end
+
+@implementation MPWKWebView
+- (BOOL)acceptsFirstResponder { return YES; }
+- (void)performFindPanelAction:(id)sender
+{
+    if ([self.findActionTarget respondsToSelector:@selector(performFindPanelAction:)])
+        [self.findActionTarget performFindPanelAction:sender];
+}
+@end
 
 
 @implementation MPDocument
@@ -1325,14 +1351,243 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         @"requestAnimationFrame(send);}},{passive:true});})();";
     [ucc addUserScript:[[WKUserScript alloc] initWithSource:scrollJS
         injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+
+    // Selección conectada editor↔visor (mapeo por bloque vía data-sourcepos):
+    //  - macdownHighlightLines(start,end): resalta el bloque que cubre esas líneas.
+    //  - selectionchange: al seleccionar en el visor, manda las líneas del bloque
+    //    para reflejar la selección en el editor.
+    NSString *linkedJS =
+        @"(function(){"
+        @"var st=document.createElement('style');"
+        @"st.textContent='.macdown-linked{outline:2px solid rgba(120,160,255,0.75);"
+        @"outline-offset:3px;border-radius:2px;}';"
+        @"(document.head||document.documentElement).appendChild(st);"
+        @"function clr(){var n=document.querySelectorAll('.macdown-linked');"
+        @"for(var i=0;i<n.length;i++)n[i].classList.remove('macdown-linked');}"
+        @"function pb(t,el){var a=el.getAttribute('data-sourcepos');"
+        @"var m=a&&a.match(/^(\\d+):\\d+-(\\d+):\\d+/);"
+        @"if(m&&window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
+        @"window.webkit.messageHandlers.macdown.postMessage({type:t,startLine:+m[1],endLine:+m[2]});}"
+        @"window.macdownHighlightLines=function(start,end){clr();if(!start)return;"
+        @"var els=document.querySelectorAll('[data-sourcepos]'),best=null,bs=1e9;"
+        @"for(var i=0;i<els.length;i++){var a=els[i].getAttribute('data-sourcepos');"
+        @"var m=a&&a.match(/^(\\d+):\\d+-(\\d+):\\d+/);if(!m)continue;"
+        @"var s=+m[1],e=+m[2];if(s<=start&&start<=e){var sp=e-s;if(sp<bs){bs=sp;best=els[i];}}}"
+        @"if(best){best.classList.add('macdown-linked');pb('block',best);}"
+        @"else if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.macdown)"
+        @"window.webkit.messageHandlers.macdown.postMessage({type:'block',startLine:0,endLine:0});};"
+        @"document.addEventListener('selectionchange',function(){"
+        @"var sel=window.getSelection();if(!sel||sel.rangeCount===0)return;"
+        @"var node=sel.anchorNode;if(node&&node.nodeType===3)node=node.parentElement;"
+        @"while(node&&!(node.getAttribute&&node.getAttribute('data-sourcepos')))node=node.parentElement;"
+        @"if(!node)return;clr();node.classList.add('macdown-linked');pb('selection',node);"
+        @"});})();";
+    [ucc addUserScript:[[WKUserScript alloc] initWithSource:linkedJS
+        injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
     config.userContentController = ucc;
 
-    WKWebView *wk = [[WKWebView alloc] initWithFrame:self.preview.bounds
-                                       configuration:config];
+    MPWKWebView *wk = [[MPWKWebView alloc] initWithFrame:self.preview.bounds
+                                           configuration:config];
+    wk.findActionTarget = self;
     wk.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     wk.navigationDelegate = self;
     [self.preview addSubview:wk];
     self.wkPreview = wk;
+}
+
+#pragma mark - Búsqueda en el visor (WKWebView, findString:)
+
+// performFindPanelAction: lo maneja el editor (NSTextView) cuando tiene el foco; si el
+// selector llega hasta el documento por la responder chain es porque el foco está en el
+// visor, así que buscamos ahí con un find bar propio (WKWebView no trae uno).
+- (void)performFindPanelAction:(id)sender
+{
+    if (![self usesWKWebView] || !self.wkPreview)
+        return;
+    switch ([sender tag])
+    {
+        case NSFindPanelActionShowFindPanel: [self mp_showWKFindBar];          break;
+        case NSFindPanelActionNext:          [self mp_findInPreviewForward:YES]; break;
+        case NSFindPanelActionPrevious:      [self mp_findInPreviewForward:NO];  break;
+        default: break;
+    }
+}
+
+- (void)mp_buildWKFindBarIfNeeded
+{
+    if (self.wkFindBar)
+        return;
+
+    NSSearchField *field = [[NSSearchField alloc] init];
+    field.translatesAutoresizingMaskIntoConstraints = NO;
+    field.placeholderString = NSLocalizedString(@"Buscar en el visor", @"preview find");
+    field.target = self;
+    field.action = @selector(mp_wkFindNext:);
+    field.delegate = (id<NSSearchFieldDelegate>)self;
+    [field.widthAnchor constraintGreaterThanOrEqualToConstant:180].active = YES;
+    self.wkFindField = field;
+
+    NSTextField *status = [NSTextField labelWithString:@""];
+    status.translatesAutoresizingMaskIntoConstraints = NO;
+    status.textColor = [NSColor secondaryLabelColor];
+    status.font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
+    self.wkFindStatus = status;
+
+    NSButton *prev = [NSButton buttonWithTitle:@"‹" target:self action:@selector(mp_wkFindPrev:)];
+    NSButton *next = [NSButton buttonWithTitle:@"›" target:self action:@selector(mp_wkFindNext:)];
+    NSButton *done = [NSButton buttonWithTitle:@"✕" target:self action:@selector(mp_hideWKFindBar:)];
+    for (NSButton *b in @[prev, next, done]) b.bezelStyle = NSBezelStyleRounded;
+
+    NSStackView *stack = [NSStackView stackViewWithViews:@[field, prev, next, status, done]];
+    stack.orientation = NSUserInterfaceLayoutOrientationHorizontal;
+    stack.spacing = 4;
+    stack.edgeInsets = NSEdgeInsetsMake(5, 8, 5, 8);
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+
+    NSView *bar = [[NSView alloc] initWithFrame:NSZeroRect];
+    bar.translatesAutoresizingMaskIntoConstraints = NO;
+    bar.wantsLayer = YES;
+    bar.layer.backgroundColor =
+        [[NSColor windowBackgroundColor] colorWithAlphaComponent:0.98].CGColor;
+    bar.layer.borderColor = [NSColor separatorColor].CGColor;
+    bar.layer.borderWidth = 1.0;
+    bar.layer.cornerRadius = 6.0;
+    [bar addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.topAnchor constraintEqualToAnchor:bar.topAnchor],
+        [stack.bottomAnchor constraintEqualToAnchor:bar.bottomAnchor],
+        [stack.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor],
+        [stack.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor],
+    ]];
+    self.wkFindBar = bar;
+}
+
+- (void)mp_showWKFindBar
+{
+    [self mp_buildWKFindBarIfNeeded];
+    NSView *host = self.preview;     // contenedor donde vive el wkPreview
+    if (self.wkFindBar.superview != host)
+    {
+        [host addSubview:self.wkFindBar];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.wkFindBar.trailingAnchor constraintEqualToAnchor:host.trailingAnchor constant:-14],
+            [self.wkFindBar.topAnchor constraintEqualToAnchor:host.topAnchor constant:12],
+        ]];
+    }
+    self.wkFindBar.hidden = NO;
+    [self.wkFindBar.window makeFirstResponder:self.wkFindField];
+}
+
+- (IBAction)mp_hideWKFindBar:(id)sender
+{
+    self.wkFindBar.hidden = YES;
+    self.wkFindStatus.stringValue = @"";
+    if (self.wkPreview)
+        [self.wkPreview.window makeFirstResponder:self.wkPreview];
+}
+
+- (IBAction)mp_wkFindNext:(id)sender { [self mp_findInPreviewForward:YES]; }
+- (IBAction)mp_wkFindPrev:(id)sender { [self mp_findInPreviewForward:NO]; }
+
+- (void)mp_findInPreviewForward:(BOOL)forward
+{
+    NSString *q = self.wkFindField.stringValue;
+    if (q.length == 0 || !self.wkPreview)
+    {
+        self.wkFindStatus.stringValue = @"";
+        return;
+    }
+    WKFindConfiguration *cfg = [[WKFindConfiguration alloc] init];
+    cfg.backwards = !forward;
+    cfg.caseSensitive = NO;
+    cfg.wraps = YES;
+    __weak MPDocument *weak = self;
+    [self.wkPreview findString:q withConfiguration:cfg
+             completionHandler:^(WKFindResult *result) {
+        weak.wkFindStatus.stringValue = result.matchFound
+            ? @"" : NSLocalizedString(@"Sin coincidencias", @"preview find");
+    }];
+}
+
+// Esc en el campo de búsqueda cierra el find bar (NSControlTextEditingDelegate).
+- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView
+    doCommandBySelector:(SEL)commandSelector
+{
+    if (control == self.wkFindField && commandSelector == @selector(cancelOperation:))
+    {
+        [self mp_hideWKFindBar:nil];
+        return YES;
+    }
+    return NO;
+}
+
+#pragma mark - Selección conectada editor→visor
+
+// Al mover el cursor/selección en el editor, resalta en el visor el bloque que cubre
+// esas líneas (mapeo por data-sourcepos). El sentido inverso (visor→editor) llega por
+// el mensaje "selection". suppressLinkedSelectionUntil corta el eco entre ambos.
+- (void)textViewDidChangeSelection:(NSNotification *)notification
+{
+    if (![self usesWKWebView] || !self.wkPreview)
+        return;
+    if ([NSDate timeIntervalSinceReferenceDate] < self.suppressLinkedSelectionUntil)
+        return;
+    NSRange sel = self.editor.selectedRange;
+    NSUInteger startLine = [self mp_editorLineForCharIndex:sel.location];
+    NSUInteger endLine = sel.length > 0
+        ? [self mp_editorLineForCharIndex:NSMaxRange(sel) - 1] : startLine;
+    NSString *js = [NSString stringWithFormat:
+        @"window.macdownHighlightLines&&window.macdownHighlightLines(%lu,%lu);",
+        (unsigned long)startLine, (unsigned long)endLine];
+    [self.wkPreview evaluateJavaScript:js completionHandler:nil];
+}
+
+// Número de línea (1-based) que contiene el índice de carácter dado.
+- (NSUInteger)mp_editorLineForCharIndex:(NSUInteger)idx
+{
+    NSString *s = self.editor.string;
+    if (idx > s.length)
+        idx = s.length;
+    NSUInteger line = 1;
+    NSRange range = NSMakeRange(0, idx);
+    NSRange nl;
+    while ((nl = [s rangeOfString:@"\n" options:0 range:range]).location != NSNotFound)
+    {
+        line++;
+        NSUInteger next = nl.location + 1;
+        range = NSMakeRange(next, idx - next);
+    }
+    return line;
+}
+
+// Rango de caracteres (sin el salto final) que abarcan las líneas [startLine, endLine].
+- (NSRange)mp_editorCharRangeForLines:(NSInteger)startLine to:(NSInteger)endLine
+{
+    if (startLine < 1)
+        return NSMakeRange(NSNotFound, 0);
+    if (endLine < startLine)
+        endLine = startLine;
+    NSString *s = self.editor.string;
+    __block NSUInteger cur = 0;
+    __block NSUInteger startLoc = NSNotFound;
+    __block NSUInteger endLoc = s.length;
+    [s enumerateSubstringsInRange:NSMakeRange(0, s.length)
+        options:NSStringEnumerationByLines | NSStringEnumerationSubstringNotRequired
+        usingBlock:^(NSString *sub, NSRange subRange, NSRange enclosing, BOOL *stop) {
+            cur++;
+            if (cur == (NSUInteger)startLine)
+                startLoc = enclosing.location;
+            if (cur == (NSUInteger)endLine)
+            {
+                endLoc = NSMaxRange(subRange);
+                *stop = YES;
+            }
+        }];
+    if (startLoc == NSNotFound)
+        return NSMakeRange(NSNotFound, 0);
+    if (endLoc < startLoc)
+        endLoc = startLoc;
+    return NSMakeRange(startLoc, endLoc - startLoc);
 }
 
 #pragma mark - WKScriptMessageHandler (puente genérico macdown)
@@ -1367,6 +1622,27 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             [self updateEditorHeaderLocations];
             __weak MPDocument *weak = self;
             [self refreshWKPreviewMetricsThen:^{ [weak syncScrollersWK]; }];
+        }
+    }
+    else if ([type isEqualToString:@"block"] || [type isEqualToString:@"selection"])
+    {
+        // Mapeo por bloque. "block" viene de mover el cursor en el editor (el visor ya
+        // se recuadró por JS; aquí recuadramos el editor). "selection" viene de un clic
+        // en el visor (recuadra el editor y además lleva el cursor allí).
+        NSInteger startLine = [body[@"startLine"] integerValue];
+        NSRange r = (startLine >= 1)
+            ? [self mp_editorCharRangeForLines:startLine to:[body[@"endLine"] integerValue]]
+            : NSMakeRange(NSNotFound, 0);
+        self.editor.linkedBlockRange = r;     // recuadro en el editor (o lo limpia)
+        if ([type isEqualToString:@"selection"] && r.location != NSNotFound
+            && [NSDate timeIntervalSinceReferenceDate] >= self.suppressLinkedSelectionUntil)
+        {
+            self.suppressLinkedSelectionUntil =
+                [NSDate timeIntervalSinceReferenceDate] + 0.35;
+            // Solo llevamos el cursor al inicio del bloque (sin seleccionar el texto):
+            // la selección queda reservada para la futura sincronización de selección.
+            self.editor.selectedRange = NSMakeRange(r.location, 0);
+            [self.editor scrollRangeToVisible:r];
         }
     }
 }

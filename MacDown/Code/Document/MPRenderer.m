@@ -777,6 +777,9 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     int cmarkOptions = CMARK_OPT_DEFAULT;
     if (smartypants)
         cmarkOptions |= CMARK_OPT_SMART;
+    // Emite data-sourcepos="L:C-L:C" en cada elemento: habilita el mapeo por bloque
+    // markdown↔HTML (selección conectada editor↔visor y scroll-sync más preciso).
+    cmarkOptions |= CMARK_OPT_SOURCEPOS;
 
     // Get extension names and render flags from delegate.
     NSArray<NSString *> *extNames =
