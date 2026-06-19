@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Prototipo 3 · fijar al clic</title>
+<style>
+  :root{--accent:#4183C4;}
+  *{box-sizing:border-box;}
+  body{margin:0;font:16px/1.6 -apple-system,system-ui,sans-serif;color:#1f2328;background:#fff;}
+  .hint{position:fixed;top:8px;left:0;right:0;text-align:center;font-size:12px;color:#999;z-index:60;pointer-events:none;}
+  #doc{max-width:760px;margin:44px auto 130px;padding:0 28px;position:relative;}
+  #doc h1{font-size:26px;border-bottom:1px solid #eee;padding-bottom:.2em;}
+  #doc h2{font-size:21px;margin-top:1.6em;border-bottom:1px solid #f0f0f0;padding-bottom:.2em;}
+  #doc p{margin:.8em 0;} #doc ul{margin:.6em 0;padding-left:1.6em;} #doc li{margin:.2em 0;}
+  #doc blockquote{margin:.8em 0;padding:.2em 1em;border-left:4px solid #dfe2e5;color:#6a737d;}
+  #doc pre{background:#f6f8fa;padding:12px 14px;border-radius:6px;font:13px/1.5 ui-monospace,Menlo,monospace;}
+  code{background:#eff1f3;padding:.1em .35em;border-radius:4px;font:.88em ui-monospace,Menlo,monospace;}
+  section{position:relative;}
+
+  #gutter{position:fixed;z-index:20;pointer-events:none;top:0;height:100vh;transition:background .15s,border-color .15s;
+    background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 16%,transparent));
+    border-left:1px dashed color-mix(in srgb,var(--accent) 40%,transparent);}
+  #gutter.on{background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 32%,transparent));
+    border-left-color:color-mix(in srgb,var(--accent) 75%,transparent);}
+
+  /* hover transitorio */
+  #ov{position:fixed;pointer-events:none;z-index:28;border-radius:4px;
+      background:color-mix(in srgb,var(--accent) 8%,transparent);
+      box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent);
+      transition:all .07s ease;opacity:0;}
+  /* fijado: recuadro de cuatro esquinas */
+  #sel{position:fixed;pointer-events:none;z-index:29;border-radius:4px;background-repeat:no-repeat;opacity:0;transition:all .07s ease;
+    background-image:linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--accent),var(--accent));
+    background-position:left top,left top,right top,right top,left bottom,left bottom,right bottom,right bottom;
+    background-size:26px 2px,2px 26px,26px 2px,2px 26px,26px 2px,2px 26px,26px 2px,2px 26px;}
+  #tip{position:fixed;pointer-events:none;z-index:31;font:600 11px/1.4 ui-monospace,Menlo,monospace;
+       background:#2b2f36;color:#fff;padding:3px 8px;border-radius:5px;white-space:nowrap;opacity:0;}
+  #tip b{color:#9ecbff;} #tip span{opacity:.6;font-weight:400;margin-left:6px;}
+
+  #edit{position:fixed;z-index:33;opacity:0;transform:scale(.8);transition:opacity .1s,transform .1s;
+    pointer-events:auto;cursor:pointer;font:13px/1 system-ui,sans-serif;
+    background:var(--accent);color:#fff;border:none;border-radius:50%;width:26px;height:26px;
+    box-shadow:0 2px 6px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;}
+  #edit.on{opacity:.9;transform:none;} #edit:hover{opacity:1;}
+
+  #bc{position:fixed;bottom:0;left:0;right:0;height:42px;display:flex;align-items:center;gap:2px;
+      padding:0 14px;background:#fafbfc;border-top:1px solid #e7e9ec;font:13px/1 system-ui,sans-serif;z-index:40;opacity:.4;transition:opacity .12s;}
+  #bc.on{opacity:1;}
+  #bc .crumb{padding:5px 9px;border-radius:6px;cursor:pointer;color:#57606a;white-space:nowrap;}
+  #bc .crumb:hover{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);}
+  #bc .crumb.cur{color:#1f2328;font-weight:600;} #bc .sep{color:#bbb;}
+  #bc .lbl{color:#9aa1aa;margin-right:6px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+  #bc .esc{margin-left:auto;color:#aaa;font-size:11px;}
+
+  .inline-ed{margin:.4em 0;border:1.5px solid var(--accent);border-radius:7px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.10);}
+  .inline-ed textarea{display:block;width:100%;border:0;outline:0;resize:vertical;min-height:60px;font:13.5px/1.55 ui-monospace,Menlo,monospace;padding:11px 13px;color:#24292f;}
+  .inline-ed .bar{display:flex;justify-content:space-between;align-items:center;background:#f6f8fa;border-top:1px solid #eaecef;padding:5px 8px 5px 11px;font:11px system-ui,sans-serif;color:#8a929c;}
+  .inline-ed .bar button{font:600 12px system-ui,sans-serif;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;}
+  .inline-ed .done{background:var(--accent);color:#fff;} .inline-ed .cancel{background:#e7e9ec;color:#444;margin-right:6px;}
+</style></head>
+<body>
+<div class="hint">Franja derecha = preview · <b>clic = fijar</b> · ←→ nivel · ↑↓ bloque · ✏︎ o <b>doble-clic (ya fijado) = editar</b> · sal = soltar (Esc)</div>
+
+<article id="doc" data-kind="Documento" data-pos="1–40">
+  <h1 data-kind="Título" data-pos="1" data-md="# Informe de incidencias E2E">Informe de incidencias E2E</h1>
+  <section data-kind="Sección" data-pos="3–14" data-name="Resumen">
+    <h2 data-kind="Encabezado" data-pos="3" data-md="## Resumen">Resumen</h2>
+    <p data-kind="Párrafo" data-pos="5" data-md="Durante las pruebas se detectaron varias incidencias. A continuación, el resumen por caso.">Durante las pruebas se detectaron varias incidencias. A continuación, el resumen por caso, con el estado de cada uno.</p>
+    <ul data-kind="Lista" data-pos="7–11" data-md="- Doble cobro (resuelto).&#10;- Portes antes del IVA.&#10;  - Recogida en tienda.&#10;  - Validar en SAGE.&#10;- Dirección 0.">
+      <li data-kind="Ítem" data-pos="7" data-md="- Doble cobro en pago con tarjeta (`resuelto`).">Doble cobro en pago con tarjeta (<code>resuelto</code>).</li>
+      <li data-kind="Ítem" data-pos="8" data-md="- Portes aplicados antes del IVA.">Portes aplicados antes del IVA.
+        <ul data-kind="Sublista" data-pos="9–10" data-md="  - Afecta a recogida en tienda.&#10;  - Pendiente de validar en SAGE.">
+          <li data-kind="Subítem" data-pos="9" data-md="  - Afecta a recogida en tienda.">Afecta a recogida en tienda.</li>
+          <li data-kind="Subítem" data-pos="10" data-md="  - Pendiente de validar en SAGE.">Pendiente de validar en SAGE.</li>
+        </ul>
+      </li>
+      <li data-kind="Ítem" data-pos="11" data-md="- Dirección 0 mostrada como 'no hay dirección'.">Dirección "0" mostrada como "no hay dirección".</li>
+    </ul>
+  </section>
+  <section data-kind="Sección" data-pos="16–28" data-name="Detalle">
+    <h2 data-kind="Encabezado" data-pos="16" data-md="## Detalle del caso 1">Detalle del caso 1</h2>
+    <p data-kind="Párrafo" data-pos="18" data-md="El cliente pagó dos veces por un reintento de Redsys que no se idempotenció.">El cliente pagó dos veces el mismo pedido por un reintento de Redsys que no se idempotenció.</p>
+    <blockquote data-kind="Cita" data-pos="20" data-md="> Verificado en prod: el segundo cobro ya no ocurre."><p data-kind="Párrafo" data-pos="20" data-md="Verificado en prod: el segundo cobro ya no ocurre.">Verificado en prod tras el deploy: el segundo cobro ya no ocurre.</p></blockquote>
+    <pre data-kind="Código" data-pos="23–26" data-md="```&#10;processed=0 created=0&#10;state=ok&#10;```"><code>processed=0 created=0
+failed=0 unrecoverable=0
+state=ok</code></pre>
+  </section>
+</article>
+
+<div id="gutter"></div><div id="ov"></div><div id="sel"></div><div id="tip"></div>
+<button id="edit" title="Editar este bloque">✏︎</button>
+<div id="bc"><span class="lbl">Bloque</span></div>
+
+<script>
+const ICON={Documento:"§",Sección:"▤",Encabezado:"H",Párrafo:"¶",Lista:"•",Sublista:"•",Ítem:"–",Subítem:"–",Cita:"❝",Código:"‹›",Título:"H1"};
+const doc=document.getElementById('doc'),ov=document.getElementById('ov'),sel=document.getElementById('sel'),tip=document.getElementById('tip'),
+      edit=document.getElementById('edit'),bc=document.getElementById('bc'),gutter=document.getElementById('gutter');
+let chain=[],level=0,pinned=false,current=null;
+const GUT=0.16;
+
+function ancestry(el){const a=[];let n=el;while(n){if(n.dataset&&n.dataset.kind)a.push(n);n=n.parentElement;}return a;}
+function place(box,el,pad){const r=el.getBoundingClientRect();box.style.left=(r.left-pad)+'px';box.style.top=(r.top-pad)+'px';box.style.width=(r.width+2*pad)+'px';box.style.height=(r.height+2*pad)+'px';box.style.opacity=1;}
+function showTip(el){tip.innerHTML='<b>'+(ICON[el.dataset.kind]||'')+' '+el.dataset.kind+'</b><span>L'+el.dataset.pos+(el.dataset.name?' · '+el.dataset.name:'')+'</span>';const r=el.getBoundingClientRect();tip.style.left=(r.left-6)+'px';tip.style.top=Math.max(4,r.top-26)+'px';tip.style.opacity=1;}
+function showEdit(el){const r=el.getBoundingClientRect();edit.style.left=(r.right-4-26)+'px';edit.style.top=Math.max(6,r.top-13)+'px';edit.classList.add('on');}
+function renderBC(){bc.querySelectorAll('.crumb,.sep,.esc').forEach(n=>n.remove());const top=[...chain].reverse();
+  top.forEach((el,i)=>{const c=document.createElement('span');c.className='crumb'+((chain.length-1-level)===i?' cur':'');
+    c.textContent=(ICON[el.dataset.kind]||'')+' '+el.dataset.kind+(el.dataset.name?' '+el.dataset.name:'');
+    c.onmouseenter=()=>{level=chain.length-1-i;current=chain[level];place(pinned?sel:ov,current,6);showTip(current);showEdit(current);renderBC();};
+    bc.appendChild(c);if(i<top.length-1){const s=document.createElement('span');s.className='sep';s.textContent='›';bc.appendChild(s);}});
+  if(pinned){const e=document.createElement('span');e.className='esc';e.textContent='Esc para soltar';bc.appendChild(e);}
+}
+function hover(el){current=el;chain=ancestry(el);if(level>=chain.length)level=0;current=chain[Math.min(level,chain.length-1)];
+  place(ov,current,6);showTip(current);showEdit(current);bc.classList.add('on');gutter.classList.add('on');renderBC();}
+function pin(){pinned=true;ov.style.opacity=0;gutter.classList.add('on');bc.classList.add('on');place(sel,current,6);showTip(current);showEdit(current);renderBC();}
+function unpin(){pinned=false;sel.style.opacity=0;ov.style.opacity=0;tip.style.opacity=0;edit.classList.remove('on');gutter.classList.remove('on');bc.classList.remove('on');current=null;}
+
+let leaveTimer=null;
+// zona "segura" donde la fijación se mantiene: la franja + el botón + el breadcrumb
+function inSafeZone(x,y,target){
+  if(target===edit||edit.contains(target)||bc.contains(target))return true;
+  if(!current)return false;
+  const r=current.getBoundingClientRect(); // la zona segura es el BLOQUE fijado (+ su botón a la derecha)
+  return x>r.left-10 && x<r.right+60 && y>r.top-18 && y<r.bottom+16;
+}
+window.addEventListener('mousemove',e=>{
+  if(pinned){ // se mantiene fijado mientras no salgas de la franja (con grace anti-parpadeo)
+    if(inSafeZone(e.clientX,e.clientY,e.target)){if(leaveTimer){clearTimeout(leaveTimer);leaveTimer=null;}}
+    else if(!leaveTimer){leaveTimer=setTimeout(()=>{unpin();leaveTimer=null;},160);}
+    return;
+  }
+  const r=doc.getBoundingClientRect();
+  const inZone=e.clientX>r.right-r.width*GUT && e.clientX<window.innerWidth && e.clientY>r.top && e.clientY<r.bottom;
+  if(inZone){const el=document.elementFromPoint(r.left+r.width*0.4,e.clientY);const leaf=el&&el.closest&&el.closest('[data-kind]');
+    if(leaf){if(!current||!ancestry(leaf).includes(current))level=0;hover(leaf);}}
+  else{ov.style.opacity=0;tip.style.opacity=0;edit.classList.remove('on');gutter.classList.remove('on');bc.classList.remove('on');}
+});
+// clic en la franja => fijar (se suelta al SALIR de la zona, o con Esc)
+window.addEventListener('click',e=>{
+  if(e.target===edit||edit.contains(e.target)||bc.contains(e.target))return;
+  const r=doc.getBoundingClientRect();
+  const inZone=e.clientX>r.right-r.width*GUT && e.clientY>r.top && e.clientY<r.bottom;
+  if(inZone && current)pin();
+});
+// doble-clic SOLO una vez fijado = editar (el bloque ya es estable; evita que el
+// cursor se mueva entre los dos clicks de un doble-clic "en frío" y fije/edite distinto)
+window.addEventListener('dblclick',e=>{
+  if(e.target===edit||edit.contains(e.target)||bc.contains(e.target))return;
+  if(pinned && current){e.preventDefault();openEditor(current);}
+});
+function siblingBlock(el,dir){let n=dir>0?el.nextElementSibling:el.previousElementSibling;while(n){if(n.dataset&&n.dataset.kind)return n;n=dir>0?n.nextElementSibling:n.previousElementSibling;}return null;}
+function refresh(){place(sel,current,6);showTip(current);showEdit(current);renderBC();}
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&pinned){unpin();return;}
+  if(!pinned||!current)return;  // las flechas solo operan una vez fijado
+  if(e.key==='ArrowLeft'){level=Math.min(level+1,chain.length-1);current=chain[level];refresh();e.preventDefault();}
+  else if(e.key==='ArrowRight'){level=Math.max(level-1,0);current=chain[level];refresh();e.preventDefault();}
+  else if(e.key==='ArrowUp'){const s=siblingBlock(current,-1);if(s){current=s;chain=ancestry(s);level=Math.min(level,chain.length-1);refresh();}e.preventDefault();}
+  else if(e.key==='ArrowDown'){const s=siblingBlock(current,1);if(s){current=s;chain=ancestry(s);level=Math.min(level,chain.length-1);refresh();}e.preventDefault();}
+});
+edit.addEventListener('click',()=>{if(current)openEditor(current);});
+
+function positionGutter(){const r=doc.getBoundingClientRect();gutter.style.left=(r.right-r.width*GUT)+'px';gutter.style.width=(r.width*GUT)+'px';}
+positionGutter();window.addEventListener('resize',positionGutter);window.addEventListener('scroll',()=>{positionGutter();if(current)place(pinned?sel:ov,current,6),showTip(current),showEdit(current);},{passive:true});
+
+function openEditor(el){const md=(el.getAttribute('data-md')||el.textContent).replace(/&#10;/g,'\n');unpin();
+  const wrap=document.createElement('div');wrap.className='inline-ed';
+  const ta=document.createElement('textarea');ta.value=md;
+  const bar=document.createElement('div');bar.className='bar';
+  const lab=document.createElement('span');lab.textContent='editando '+el.dataset.kind+' · L'+el.dataset.pos+' (markdown fuente)';
+  const btns=document.createElement('span');const cancel=document.createElement('button');cancel.className='cancel';cancel.textContent='Cancelar';
+  const done=document.createElement('button');done.className='done';done.textContent='Hecho';btns.append(cancel,done);bar.append(lab,btns);
+  wrap.append(ta,bar);el.style.display='none';el.parentNode.insertBefore(wrap,el);ta.focus();ta.style.height=Math.max(60,ta.scrollHeight)+'px';
+  const close=()=>{wrap.remove();el.style.display='';};cancel.onclick=close;
+  done.onclick=()=>{close();el.style.transition='background .2s';el.style.background='color-mix(in srgb,var(--accent) 14%,transparent)';setTimeout(()=>el.style.background='',600);};
+}
+</script>
+</body></html>
