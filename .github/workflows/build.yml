@@ -8,7 +8,7 @@ name: Build MacDown Remix (cmark-gfm + WKWebView)
 #   git tag v1.0-beta.1 && git push origin v1.0-beta.1
 on:
   push:
-    branches: [ master, experiment/cmark-gfm, feature/consolidate-on-cmark-gfm, experiment/wkwebview ]
+    branches: [ master, 'feature/**', experiment/cmark-gfm, experiment/wkwebview ]
     tags: [ 'v*-*' ]          # tags con guion => pre-release
   workflow_dispatch:
 
