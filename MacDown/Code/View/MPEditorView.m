@@ -237,6 +237,7 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
         return;
     if (NSMaxRange(_linkedBlockRange) > self.string.length)
         return;
+
     NSLayoutManager *lm = self.layoutManager;
     NSTextContainer *tc = self.textContainer;
     NSRange glyphRange =
@@ -245,10 +246,64 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     NSPoint origin = self.textContainerOrigin;
     r.origin.x += origin.x;
     r.origin.y += origin.y;
-    NSRect box = NSInsetRect(r, -3.0, -1.0);
-    NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:box xRadius:3 yRadius:3];
+
+    // Aire interior generoso (sacrificando margen exterior). En párrafos multilínea
+    // el rect del texto llena el ancho del contenedor, así que las verticales de las
+    // esquinas caerían en los márgenes; se clampa a ambos bordes del área visible
+    // para que se vean siempre.
+    NSRect box = NSInsetRect(r, -8.0, -5.0);
+    // El NSTextView recorta el dibujo al área del text container, así que las
+    // verticales de las esquinas se perderían si caen en el margen (textContainerInset).
+    // Se clampa el recuadro a esa área para que las verticales se vean siempre; el
+    // padding del contenedor hace de aire interior.
+    CGFloat viewW = self.bounds.size.width;
+    CGFloat inset = self.textContainerInset.width;
+    CGFloat minX = MAX(inset, NSMinX(box));
+    CGFloat maxX = MIN(viewW - inset, NSMaxX(box));
+    CGFloat minY = NSMinY(box), maxY = NSMaxY(box);
+    if (maxX - minX < 12.0 || maxY - minY < 8.0)
+        return;
+
+    // ¿bloque grande? cuenta líneas visuales (fragmentos) hasta el umbral.
+    NSUInteger lines = 0, idx = glyphRange.location, maxIdx = NSMaxRange(glyphRange);
+    NSRange lineRange;
+    while (idx < maxIdx)
+    {
+        [lm lineFragmentRectForGlyphAtIndex:idx effectiveRange:&lineRange];
+        idx = NSMaxRange(lineRange);
+        if (++lines >= 10)
+            break;
+    }
+    BOOL big = (lines >= 10);
+
+    CGFloat corX = MIN(30.0, (maxX - minX) * 0.45);
+    CGFloat corY = MIN(30.0, (maxY - minY) * 0.45);
+
+    NSBezierPath *path = [NSBezierPath bezierPath];
     path.lineWidth = 2.0;
-    [[NSColor colorWithRed:0.47 green:0.63 blue:1.0 alpha:0.75] setStroke];
+    path.lineCapStyle = NSLineCapStyleRound;
+    // Cuatro esquinas en L.
+    [path moveToPoint:NSMakePoint(minX, minY)]; [path lineToPoint:NSMakePoint(minX + corX, minY)];
+    [path moveToPoint:NSMakePoint(minX, minY)]; [path lineToPoint:NSMakePoint(minX, minY + corY)];
+    [path moveToPoint:NSMakePoint(maxX, minY)]; [path lineToPoint:NSMakePoint(maxX - corX, minY)];
+    [path moveToPoint:NSMakePoint(maxX, minY)]; [path lineToPoint:NSMakePoint(maxX, minY + corY)];
+    [path moveToPoint:NSMakePoint(minX, maxY)]; [path lineToPoint:NSMakePoint(minX + corX, maxY)];
+    [path moveToPoint:NSMakePoint(minX, maxY)]; [path lineToPoint:NSMakePoint(minX, maxY - corY)];
+    [path moveToPoint:NSMakePoint(maxX, maxY)]; [path lineToPoint:NSMakePoint(maxX - corX, maxY)];
+    [path moveToPoint:NSMakePoint(maxX, maxY)]; [path lineToPoint:NSMakePoint(maxX, maxY - corY)];
+    // Trazo central por lado solo en bloques grandes.
+    if (big)
+    {
+        CGFloat midX = (minX + maxX) / 2, midY = (minY + maxY) / 2, dl = 34.0;
+        [path moveToPoint:NSMakePoint(midX - dl/2, minY)]; [path lineToPoint:NSMakePoint(midX + dl/2, minY)];
+        [path moveToPoint:NSMakePoint(midX - dl/2, maxY)]; [path lineToPoint:NSMakePoint(midX + dl/2, maxY)];
+        [path moveToPoint:NSMakePoint(minX, midY - dl/2)]; [path lineToPoint:NSMakePoint(minX, midY + dl/2)];
+        [path moveToPoint:NSMakePoint(maxX, midY - dl/2)]; [path lineToPoint:NSMakePoint(maxX, midY + dl/2)];
+    }
+
+    NSColor *c = self.insertionPointColor
+        ?: [NSColor colorWithRed:0.47 green:0.63 blue:1.0 alpha:1.0];
+    [[c colorWithAlphaComponent:0.92] setStroke];
     [path stroke];
 }
 
