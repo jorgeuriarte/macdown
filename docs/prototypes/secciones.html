@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Gap AST↔secciones · construir secciones desde HTML plano</title>
+<style>
+  :root{--accent:#4183C4;}
+  body{margin:0;font:16px/1.6 -apple-system,system-ui,sans-serif;color:#1f2328;}
+  .hint{position:fixed;top:8px;left:0;right:0;text-align:center;font-size:12px;color:#999;z-index:50;pointer-events:none;}
+  #doc{max-width:720px;margin:42px auto 70px;padding:0 28px;}
+  h1{font-size:25px;} h2{font-size:20px;margin-top:1.4em;} h3{font-size:17px;margin-top:1.2em;}
+  p{margin:.7em 0;} ul{margin:.5em 0;padding-left:1.5em;}
+  /* IMPORTANTE: aquí NO hay <section>. Los bloques son hermanos planos, como en cmark real. */
+  #ov{position:fixed;pointer-events:none;z-index:30;border-radius:5px;transition:all .06s;opacity:0;
+      background:color-mix(in srgb,var(--accent) 9%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 60%,transparent);}
+  #bc{position:fixed;bottom:0;left:0;right:0;height:40px;display:flex;align-items:center;gap:2px;padding:0 14px;
+      background:#fafbfc;border-top:1px solid #e7e9ec;font:13px/1 system-ui;z-index:40;}
+  #bc .crumb{padding:5px 9px;border-radius:6px;cursor:pointer;color:#57606a;}
+  #bc .crumb:hover,.crumb.cur{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-weight:600;}
+  #bc .sep{color:#bbb;} #bc .lbl{color:#9aa1aa;margin-right:6px;font-size:11px;text-transform:uppercase;}
+  #bc .virt{font-style:italic;} /* las secciones son niveles "virtuales" calculados */
+</style></head>
+<body>
+<div class="hint">HTML <b>plano</b> (sin &lt;section&gt;, como cmark). Pasa el ratón: las <i>Secciones</i> del breadcrumb se calculan al vuelo desde los headings + data-sourcepos.</div>
+<div id="doc">
+  <h1 data-pos="1">Informe E2E</h1>
+  <p data-pos="3">Intro general del informe, fuera de toda sección de nivel 2.</p>
+  <h2 data-pos="5">Resumen</h2>
+  <p data-pos="7">Párrafo del resumen.</p>
+  <ul data-pos="9"><li data-pos="9">Un punto.</li><li data-pos="10">Otro punto.</li></ul>
+  <h3 data-pos="12">Detalle del resumen</h3>
+  <p data-pos="14">Texto dentro de la subsección H3, que a su vez está dentro de "Resumen".</p>
+  <h2 data-pos="16">Conclusiones</h2>
+  <p data-pos="18">Primer párrafo de conclusiones.</p>
+  <p data-pos="20">Segundo párrafo de conclusiones.</p>
+</div>
+<div id="ov"></div>
+<div id="bc"><span class="lbl">Jerarquía</span></div>
+
+<script>
+const doc=document.getElementById('doc'),ov=document.getElementById('ov'),bc=document.getElementById('bc');
+const KIND={H1:'Título',H2:'Sección',H3:'Subsección',P:'Párrafo',UL:'Lista',LI:'Ítem',BLOCKQUOTE:'Cita',PRE:'Código'};
+const blocks=[...doc.children]; // hermanos planos
+function hlevel(el){const m=/^H([1-6])$/.exec(el.tagName);return m?+m[1]:0;}
+
+// --- EL NÚCLEO: construir la sección que contiene un bloque, a un nivel de heading dado ---
+// Devuelve {heading, first, last, startPos, endPos} agrupando los hermanos.
+function sectionAt(idx,level){
+  // busca hacia atrás el heading de ESE nivel que abre la sección que contiene a idx
+  let h=-1;
+  for(let i=idx;i>=0;i--){const L=hlevel(blocks[i]);if(L&&L<=level){h=i;if(L===level)break;else return null;}}
+  if(h<0)return null;
+  // el final: hasta justo antes del siguiente heading de nivel <= level
+  let end=blocks.length-1;
+  for(let i=h+1;i<blocks.length;i++){const L=hlevel(blocks[i]);if(L&&L<=level){end=i-1;break;}}
+  return {first:blocks[h],last:blocks[end],startPos:blocks[h].dataset.pos,endPos:blocks[end].dataset.pos,kind:KIND[blocks[h].tagName]};
+}
+// cadena de niveles (de hoja a raíz) para un bloque: el bloque + sus secciones contenedoras + Documento
+function chainFor(el){
+  const idx=blocks.indexOf(el.closest('#doc > *'));
+  const leaf=blocks[idx];
+  const chain=[{first:leaf,last:leaf,startPos:leaf.dataset.pos,endPos:leaf.dataset.pos,kind:KIND[leaf.tagName]||leaf.tagName}];
+  // secciones contenedoras: por cada nivel de heading 6..1, si hay una que contiene idx y aporta algo nuevo
+  for(let lvl=6;lvl>=1;lvl--){
+    const s=sectionAt(idx,lvl);
+    if(s && s.first!==leaf && !chain.some(c=>c.first===s.first)) chain.push(s);
+  }
+  chain.push({first:blocks[0],last:blocks[blocks.length-1],startPos:'1',endPos:blocks[blocks.length-1].dataset.pos,kind:'Documento'});
+  return chain;
+}
+function boxOf(s){ // bounding box que abarca del primer al último bloque del grupo
+  const a=s.first.getBoundingClientRect(),b=s.last.getBoundingClientRect();
+  return {left:Math.min(a.left,b.left),top:a.top,right:Math.max(a.right,b.right),bottom:b.bottom};
+}
+function show(s){const r=boxOf(s),p=6;ov.style.left=(r.left-p)+'px';ov.style.top=(r.top-p)+'px';ov.style.width=(r.right-r.left+2*p)+'px';ov.style.height=(r.bottom-r.top+2*p)+'px';ov.style.opacity=1;}
+let chain=[],level=0;
+function renderBC(){bc.querySelectorAll('.crumb,.sep').forEach(n=>n.remove());const top=[...chain].reverse();
+  top.forEach((s,i)=>{const c=document.createElement('span');const isSec=/Sección|Subsección/.test(s.kind);
+    c.className='crumb'+((chain.length-1-level)===i?' cur':'')+(isSec?' virt':'');
+    c.textContent=s.kind+' · L'+s.startPos+(s.endPos!==s.startPos?'–'+s.endPos:'');
+    c.onmouseenter=()=>{level=chain.length-1-i;show(chain[level]);renderBC();};
+    bc.appendChild(c);if(i<top.length-1){const sp=document.createElement('span');sp.className='sep';sp.textContent='›';bc.appendChild(sp);}});
+}
+doc.addEventListener('mousemove',e=>{const el=e.target.closest('#doc > *, li');if(!el)return;
+  chain=chainFor(el);level=0;show(chain[0]);renderBC();});
+doc.addEventListener('mouseleave',()=>ov.style.opacity=0);
+</script>
+</body></html>

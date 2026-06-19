@@ -86,17 +86,44 @@ Reutiliza lo ya hecho en la selección conectada:
 | Recuadro del bloque activo (visor + editor) | ✅ | selector visual / fijación |
 | Selección conectada por bloque | ✅ | base de "apuntar al bloque y reflejarlo" |
 
-## 7. Gap conocido a resolver: las **secciones** no están en el AST
+## 7. Gap conocido: las **secciones** no están en el AST — decisión
 
 cmark-gfm produce bloques **hermanos planos**: `<h2>`, `<p>`, `<ul>`, `<h2>`… La "sección"
 (un heading + todo su contenido hasta el siguiente heading de nivel ≤) **no es un nodo del
 AST ni un elemento del HTML** — es un **rango implícito**. Sin embargo, el modelo de niveles
 (breadcrumb, `←/→`) necesita la "Sección" como un nivel navegable.
 
-Hay que **construir el árbol de secciones** a partir de los headings y su `sourcepos`
-(agrupar los bloques entre dos headings, respetando el anidamiento H1>H2>H3). Las opciones
-y su evaluación están **pendientes de investigar** (envolver en `<section>` en post-proceso
-del HTML vs. calcular el rango en ObjC/JS al seleccionar). Es el siguiente análisis.
+### 7.1 Las cuatro aproximaciones evaluadas
+
+| # | Aproximación | Qué implica | Veredicto |
+|---|---|---|---|
+| **A** | Reescribir el AST en C (insertar nodos `section`) | cmark **no tiene** tipo `section`; habría que parchear el render o el árbol en C | ❌ **Descartada** — invasivo, contra-corriente del upstream, frágil ante actualizaciones del submódulo |
+| **B-pura** | Render nodo a nodo desde ObjC, envolviendo a mano | Perdemos el render global de cmark: **footnotes, referencias, listas tight/loose** dependen del contexto del documento entero | ❌ **Descartada** — reimplementar el render de cmark es inviable y regresivo |
+| **B-ObjC** | Post-procesar el **HTML string** en ObjC para envolver en `<section>` antes de cargarlo | Cajas reales en el DOM desde el primer paint, pero parsing de HTML en ObjC (frágil) y desfase con `sourcepos`/math igual que B-JS | 🟡 **Reservada** — solo si hace falta **export semántica** (HTML con `<section>` para terceros) |
+| **B-JS** | Tras cargar, un script en el visor **envuelve** los hermanos en `<section>` reales | Cajas reales (permiten plegado, drag, CSS de sección) sin tocar el render de cmark | 🟡 **Evolución** — cuando se necesiten **cajas reales** (plegado/drag/CSS por sección) |
+| **D** | **No** crear `<section>`: calcular la sección **al vuelo en JS** desde los headings + `data-sourcepos` | Render de cmark **intacto, riesgo cero**; la jerarquía es virtual (breadcrumb, recuadro, rango fuente) | ✅ **Decisión para M1** |
+
+### 7.2 Decisión
+
+- **D ahora (M1):** calcular las secciones **en JavaScript, sobre el HTML plano**, sin tocar
+  el render de cmark. La "Sección"/"Subsección" son **niveles virtuales** del breadcrumb,
+  computados desde los headings y `data-sourcepos`. **Riesgo de render: cero** (no tocamos el
+  pipeline de cmark, así que footnotes/refs/tight-loose siguen correctos).
+  Validado en el prototipo [`prototypes/secciones.html`](prototypes/secciones.html)
+  (`sectionAt(idx, level)` / `chainFor(el)`).
+- **B-JS (evolución):** si en el futuro queremos **cajas de sección reales** (plegar una
+  sección, arrastrarla, aplicarle CSS de fondo), un script envolverá los hermanos en
+  `<section>` **después** de cargar — sin tocar cmark. Disparador: cuando la interacción
+  pida manipular la sección como un objeto, no solo resaltarla.
+- **B-ObjC (reservada):** solo si necesitamos **exportar** HTML con `<section>` semánticas
+  para consumo externo. No para la interacción.
+- **A y B-pura: descartadas** (cmark no tiene tipo sección; el render nodo a nodo pierde el
+  contexto global del documento).
+
+> **Nota sobre el desfase `sourcepos` ↔ math:** la protección de fórmulas reescribe el
+> fuente antes de cmark, por lo que las columnas de `data-sourcepos` pueden desplazarse en
+> líneas con `$…$`. Afecta **por igual** a D y a B (ambas leen `sourcepos`); se aborda
+> aparte y no condiciona esta decisión.
 
 ## 8. Pendientes / riesgos
 
