@@ -252,9 +252,14 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     // esquinas caerían en los márgenes; se clampa a ambos bordes del área visible
     // para que se vean siempre.
     NSRect box = NSInsetRect(r, -8.0, -5.0);
+    // El NSTextView recorta el dibujo al área del text container, así que las
+    // verticales de las esquinas se perderían si caen en el margen (textContainerInset).
+    // Se clampa el recuadro a esa área para que las verticales se vean siempre; el
+    // padding del contenedor hace de aire interior.
     CGFloat viewW = self.bounds.size.width;
-    CGFloat minX = MAX(2.0, NSMinX(box));
-    CGFloat maxX = MIN(viewW - 2.0, NSMaxX(box));
+    CGFloat inset = self.textContainerInset.width;
+    CGFloat minX = MAX(inset, NSMinX(box));
+    CGFloat maxX = MIN(viewW - inset, NSMaxX(box));
     CGFloat minY = NSMinY(box), maxY = NSMaxY(box);
     if (maxX - minX < 12.0 || maxY - minY < 8.0)
         return;
@@ -294,22 +299,6 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
         [path moveToPoint:NSMakePoint(midX - dl/2, maxY)]; [path lineToPoint:NSMakePoint(midX + dl/2, maxY)];
         [path moveToPoint:NSMakePoint(minX, midY - dl/2)]; [path lineToPoint:NSMakePoint(minX, midY + dl/2)];
         [path moveToPoint:NSMakePoint(maxX, midY - dl/2)]; [path lineToPoint:NSMakePoint(maxX, midY + dl/2)];
-    }
-
-    static int dbgN = 0;   // [debug temporal]
-    if (dbgN < 30)
-    {
-        FILE *f = fopen("/tmp/macdown-draw.log", "a");
-        if (f)
-        {
-            fprintf(f, "#%d minX=%.0f maxX=%.0f minY=%.0f maxY=%.0f corX=%.0f corY=%.0f "
-                       "viewW=%.0f big=%d dirty={%.0f,%.0f,%.0f,%.0f}\n",
-                    dbgN, minX, maxX, minY, maxY, corX, corY, viewW, big,
-                    dirtyRect.origin.x, dirtyRect.origin.y,
-                    dirtyRect.size.width, dirtyRect.size.height);
-            fclose(f);
-        }
-        dbgN++;
     }
 
     NSColor *c = self.insertionPointColor
