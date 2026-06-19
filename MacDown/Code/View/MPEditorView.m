@@ -296,6 +296,22 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
         [path moveToPoint:NSMakePoint(maxX, midY - dl/2)]; [path lineToPoint:NSMakePoint(maxX, midY + dl/2)];
     }
 
+    static int dbgN = 0;   // [debug temporal]
+    if (dbgN < 30)
+    {
+        FILE *f = fopen("/tmp/macdown-draw.log", "a");
+        if (f)
+        {
+            fprintf(f, "#%d minX=%.0f maxX=%.0f minY=%.0f maxY=%.0f corX=%.0f corY=%.0f "
+                       "viewW=%.0f big=%d dirty={%.0f,%.0f,%.0f,%.0f}\n",
+                    dbgN, minX, maxX, minY, maxY, corX, corY, viewW, big,
+                    dirtyRect.origin.x, dirtyRect.origin.y,
+                    dirtyRect.size.width, dirtyRect.size.height);
+            fclose(f);
+        }
+        dbgN++;
+    }
+
     NSColor *c = self.insertionPointColor
         ?: [NSColor colorWithRed:0.47 green:0.63 blue:1.0 alpha:1.0];
     [[c colorWithAlphaComponent:0.92] setStroke];
