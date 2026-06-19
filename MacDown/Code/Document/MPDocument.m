@@ -1392,8 +1392,21 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
         @"while(node&&!(node.getAttribute&&node.getAttribute('data-sourcepos')))node=node.parentElement;"
         @"if(!node)return;clr();mark(node);pb('selection',node);"
         @"});})();";
-    [ucc addUserScript:[[WKUserScript alloc] initWithSource:linkedJS
-        injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+
+    // Edición inline (M1): el inspector del visor sustituye a la selección conectada
+    // clásica (ambos definen macdownHighlightLines y postean 'block'/'selection';
+    // inyectar los dos a la vez duplicaría recuadros). En esta rama va siempre activo
+    // —la rama es el aislamiento del experimento—; cuando vaya hacia master se añadirá
+    // una preferencia real. Si el recurso no carga, se cae al linkedJS clásico.
+    NSString *inspectorJS = nil;
+    NSString *p = [[NSBundle mainBundle] pathForResource:@"inline-inspector"
+                                                  ofType:@"js" inDirectory:@"Extensions"];
+    if (p)
+        inspectorJS = [NSString stringWithContentsOfFile:p
+                                                encoding:NSUTF8StringEncoding error:NULL];
+    [ucc addUserScript:[[WKUserScript alloc]
+        initWithSource:(inspectorJS ? inspectorJS : linkedJS)
+         injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
     config.userContentController = ucc;
 
     MPWKWebView *wk = [[MPWKWebView alloc] initWithFrame:self.preview.bounds
