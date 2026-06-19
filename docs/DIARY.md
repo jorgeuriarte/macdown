@@ -1,5 +1,25 @@
 # Diario de desarrollo — MacDown (fork propio)
 
+## 2026-06-19 — Estilo del recuadro de bloque (esquinas + dash + temas)
+
+### Qué se hizo
+- El recuadro de la selección conectada pasa de un outline simple a **cuatro esquinas**
+  (30px) + **trazo central por lado** en bloques de **≥10 líneas**. El diseño se eligió
+  iterando con maquetas HTML (galerías abiertas en el navegador) en lugar de recompilar
+  por cada variante — mucho más rápido para decisiones visuales.
+- **Integración con los temas, cada panel con el suyo**: el **editor** usa el `caret` del
+  `.style` (`insertionPointColor`); el **visor** usa el acento del CSS (color de enlace)
+  leído en runtime. Así el recuadro se siente nativo en cada lado.
+- **Aire interior sin reflow**: el visor con `::after` e `inset:-6px`; el editor con un
+  inset del recuadro clampado al **área del text container** (las verticales se perdían
+  porque el NSTextView recorta el dibujo al margen — diagnosticado con instrumentación a
+  fichero). Merge en `bc81e91`.
+
+### Pendiente
+- Hacer el estilo del recuadro configurable (preferencia de estilo).
+- El dash de ≥10 líneas está implementado pero apenas probado en vivo (los bloques de
+  prueba se quedan en el umbral); revisar si conviene bajarlo.
+
 ## 2026-06-18 — Buscador en el visor + selección conectada por bloque
 
 ### Qué se hizo
