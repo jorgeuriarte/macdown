@@ -1651,8 +1651,14 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
                 [NSDate timeIntervalSinceReferenceDate] + 0.35;
             // Solo llevamos el cursor al inicio del bloque (sin seleccionar el texto):
             // la selección queda reservada para la futura sincronización de selección.
+            // Suprimimos el sync editor→preview mientras movemos el editor: el clic es
+            // en el VISOR, así que el visor NO debe desplazarse (era el bug del salto
+            // al inicio al pulsar tras hacer scroll).
+            BOOL prevSync = self.shouldHandleBoundsChange;
+            self.shouldHandleBoundsChange = NO;
             self.editor.selectedRange = NSMakeRange(r.location, 0);
             [self.editor scrollRangeToVisible:r];
+            self.shouldHandleBoundsChange = prevSync;
         }
     }
 }
