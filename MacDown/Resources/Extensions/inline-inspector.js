@@ -153,7 +153,14 @@
     '#mdi-bc .mdi-crumb:hover{background:' + CM('14%') + ';color:' + AC + ';}' +
     '#mdi-bc .mdi-crumb.cur{color:#1f2328;font-weight:600;}#mdi-bc .mdi-sep{color:#bbb;}' +
     '#mdi-bc .mdi-lbl{color:#9aa1aa;margin-right:6px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}' +
-    '#mdi-bc .mdi-esc{margin-left:auto;color:#aaa;font-size:11px;}';
+    '#mdi-bc .mdi-esc{margin-left:auto;color:#aaa;font-size:11px;}' +
+    '.mdi-edid{margin:.4em 0;border:1.5px solid ' + AC + ';border-radius:7px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.10);}' +
+    '.mdi-edid textarea{display:block;width:100%;box-sizing:border-box;border:0;outline:0;resize:vertical;min-height:60px;' +
+      'font:13.5px/1.55 ui-monospace,Menlo,monospace;padding:11px 13px;color:inherit;background:transparent;}' +
+    '.mdi-edid .bar{display:flex;justify-content:space-between;align-items:center;background:' + CM('7%') + ';' +
+      'border-top:1px solid ' + CM('22%') + ';padding:5px 8px 5px 11px;font:11px system-ui,sans-serif;color:#8a929c;}' +
+    '.mdi-edid .bar button{font:600 12px system-ui,sans-serif;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;}' +
+    '.mdi-edid .done{background:' + AC + ';color:#fff;}.mdi-edid .cancel{background:' + CM('16%') + ';color:inherit;margin-right:6px;}';
   (document.head || document.documentElement).appendChild(st);
 
   function mk(id, tag) { var e = document.createElement(tag || 'div'); e.id = id; document.body.appendChild(e); return e; }
@@ -162,7 +169,7 @@
   var bc = mk('mdi-bc'); bc.innerHTML = '<span class="mdi-lbl">Bloque</span>';
 
   // ---------- estado ----------
-  var chain = [], level = 0, pinned = false, current = null, GUT = 0.16, lastSent = '';
+  var chain = [], level = 0, pinned = false, current = null, GUT = 0.16, lastSent = '', editing = false;
 
   function contentRect() {
     var bs = bodyBlocks(), l = 1e9, r = -1e9, t = 1e9, b = -1e9;
@@ -187,6 +194,7 @@
     tip.style.left = (r.left - 6) + 'px'; tip.style.top = Math.max(4, r.top - 26) + 'px'; tip.style.opacity = 1;
   }
   function showEdit(en) {
+    if (en.kind === 'Documento') { edit.classList.remove('on'); return; }  // no se edita el doc entero inline
     var r = boxOf(en);
     edit.style.left = (r.right - 4 - 26) + 'px'; edit.style.top = Math.max(6, r.top - 13) + 'px'; edit.classList.add('on');
   }
@@ -260,6 +268,7 @@
     return x > r.left - 10 && x < r.right + 60 && y > r.top - 18 && y < r.bottom + 16;
   }
   window.addEventListener('mousemove', function (e) {
+    if (editing) return;
     if (pinned) {
       if (inSafeZone(e.clientX, e.clientY, e.target)) { if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; } }
       else if (!leaveTimer) { leaveTimer = setTimeout(function () { unpin(); leaveTimer = null; }, 160); }
@@ -284,6 +293,7 @@
 
   // clic en la franja = fijar
   window.addEventListener('click', function (e) {
+    if (editing) return;
     if (e.target === edit || edit.contains(e.target) || bc.contains(e.target)) return;
     var c = contentRect();
     var inZone = e.clientX > c.right - (c.right - c.left) * GUT && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
@@ -292,21 +302,78 @@
 
   // doble-clic (sólo ya fijado) o ✏︎ = editar  [sub-step 2: aquí sólo destella]
   window.addEventListener('dblclick', function (e) {
+    if (editing) return;
     if (e.target === edit || edit.contains(e.target) || bc.contains(e.target)) return;
     if (pinned && current) { e.preventDefault(); requestEdit(current); }
   });
   edit.addEventListener('click', function () { if (current) requestEdit(current); });
   function requestEdit(en) {
-    // TODO (hito siguiente): abrir el fuente del bloque en un mini-editor (puente ObjC).
+    if (!en || en.kind === 'Documento' || editing) return;
+    // Pide a ObjC el fuente Markdown del rango; responde con macdownOpenInlineEditor(...).
     post({ type: 'inlineEdit', startLine: en.s, endLine: en.e });
-    var el = en.first;
-    var prev = el.style.transition; el.style.transition = 'background .2s';
-    el.style.background = CM('14%');
-    setTimeout(function () { el.style.background = ''; el.style.transition = prev; }, 600);
   }
+
+  // Hermanos de <body> de en.first..en.last (un solo elemento para bloques normales;
+  // varios para una Sección virtual, que abarca hermanos planos consecutivos).
+  function spanFromTo(first, last) {
+    if (first === last) return [first];
+    var out = [], n = first;
+    while (n) { out.push(n); if (n === last) break; n = n.nextElementSibling; }
+    return out;
+  }
+
+  // Llamado desde ObjC con el fuente del bloque: abre el mini-editor (textarea) in situ.
+  window.macdownOpenInlineEditor = function (s, e, text) {
+    if (editing) return;
+    var en = current;
+    if (!en || en.s !== s || en.e !== e) {            // localizar por rango si hiciera falta
+      var bs = bodyBlocks();
+      for (var i = 0; i < bs.length; i++) {
+        var L = lines(bs[i]);
+        if (L[0] === s) { var ch = chainFor(bs[i]); en = ch && ch[0]; break; }
+      }
+    }
+    if (!en) return;
+    editing = true;
+    var hide = spanFromTo(en.first, en.last);
+    var wrap = document.createElement('div'); wrap.className = 'mdi-edid';
+    var ta = document.createElement('textarea'); ta.value = text != null ? text : '';
+    var bar = document.createElement('div'); bar.className = 'bar';
+    var lab = document.createElement('span');
+    lab.textContent = 'editando ' + en.kind + ' · L' + en.s + (en.e !== en.s ? '–' + en.e : '') + ' (markdown fuente)';
+    var btns = document.createElement('span');
+    var cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancelar';
+    var done = document.createElement('button'); done.className = 'done'; done.textContent = 'Hecho';
+    btns.appendChild(cancel); btns.appendChild(done); bar.appendChild(lab); bar.appendChild(btns);
+    wrap.appendChild(ta); wrap.appendChild(bar);
+    hide[0].parentNode.insertBefore(wrap, hide[0]);
+    for (var k = 0; k < hide.length; k++) hide[k].style.display = 'none';
+    sel.style.opacity = 0; ov.style.opacity = 0; tip.style.opacity = 0;
+    edit.classList.remove('on'); gutter.classList.remove('hot');
+
+    function autosize() { ta.style.height = 'auto'; ta.style.height = Math.max(60, ta.scrollHeight) + 'px'; }
+    function close() {
+      wrap.remove();
+      for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
+      editing = false;
+    }
+    ta.addEventListener('input', autosize);
+    cancel.onclick = function () { close(); };
+    done.onclick = function () {
+      // El re-render reemplazará todo el DOM; cerramos igualmente por si no cambia nada.
+      post({ type: 'inlineEditCommit', startLine: en.s, endLine: en.e, text: ta.value });
+      close();
+    };
+    ta.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); done.onclick(); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); cancel.onclick(); }
+    });
+    ta.focus(); autosize();
+  };
 
   // teclado: flechas sólo una vez fijado
   window.addEventListener('keydown', function (e) {
+    if (editing) return;                       // el mini-editor gestiona sus teclas
     if (e.key === 'Escape' && pinned) { unpin(); return; }
     if (!pinned || !current) return;
     if (e.key === 'ArrowLeft') { level = Math.min(level + 1, chain.length - 1); current = chain[level]; refresh(); e.preventDefault(); }

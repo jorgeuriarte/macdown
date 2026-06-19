@@ -287,6 +287,21 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
 }
 
 
+// Devuelve `s` como literal de cadena JS (incluidas las comillas), escapando
+// comillas, barras, saltos de línea, etc. Se apoya en el codificador JSON (el
+// escape de cadenas JSON es válido en JS) envolviendo en un array y quitando los
+// corchetes, para no depender de NSJSONWritingFragmentsAllowed.
+static NSString *MPJSStringLiteral(NSString *s)
+{
+    if (![s isKindOfClass:[NSString class]])
+        s = @"";
+    NSData *d = [NSJSONSerialization dataWithJSONObject:@[s] options:0 error:NULL];
+    NSString *arr = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+    if (arr.length >= 2)
+        return [arr substringWithRange:NSMakeRange(1, arr.length - 2)];
+    return @"\"\"";
+}
+
 // WKWebView del visor. Captura el Cmd+F (performFindPanelAction:) cuando el visor
 // tiene el foco y lo reenvía al documento, que muestra el find bar propio — si no,
 // WebKit/el editor se lo comen y el buscador del visor no aparece. Acepta primer
@@ -1672,6 +1687,41 @@ static void (^MPGetPreviewLoadingCompletionHandler(MPDocument *doc))()
             self.editor.selectedRange = NSMakeRange(r.location, 0);
             [self.editor scrollRangeToVisible:r];
             self.shouldHandleBoundsChange = prevSync;
+        }
+    }
+    else if ([type isEqualToString:@"inlineEdit"])
+    {
+        // Edición inline (M1): el visor pide el FUENTE Markdown de un bloque (rango de
+        // líneas vía sourcepos) para abrir su mini-editor. Se lo devolvemos por JS.
+        NSInteger s = [body[@"startLine"] integerValue];
+        NSInteger e = [body[@"endLine"] integerValue];
+        NSRange r = [self mp_editorCharRangeForLines:s to:e];
+        if (r.location == NSNotFound || NSMaxRange(r) > self.editor.string.length)
+            return;
+        NSString *src = [self.editor.string substringWithRange:r];
+        NSString *js = [NSString stringWithFormat:
+            @"window.macdownOpenInlineEditor&&window.macdownOpenInlineEditor(%ld,%ld,%@);",
+            (long)s, (long)e, MPJSStringLiteral(src)];
+        [self.wkPreview evaluateJavaScript:js completionHandler:nil];
+    }
+    else if ([type isEqualToString:@"inlineEditCommit"])
+    {
+        // El mini-editor confirma: reescribimos el rango EXACTO del fuente por el
+        // pipeline normal del NSTextView (registra undo y dispara el re-render vía
+        // NSTextDidChangeNotification → editorTextDidChange:).
+        NSInteger s = [body[@"startLine"] integerValue];
+        NSInteger e = [body[@"endLine"] integerValue];
+        NSString *text = [body[@"text"] isKindOfClass:[NSString class]] ? body[@"text"] : nil;
+        if (!text)
+            return;
+        NSRange r = [self mp_editorCharRangeForLines:s to:e];
+        if (r.location == NSNotFound || NSMaxRange(r) > self.editor.string.length)
+            return;
+        NSTextView *tv = self.editor;
+        if ([tv shouldChangeTextInRange:r replacementString:text])
+        {
+            [tv.textStorage replaceCharactersInRange:r withString:text];
+            [tv didChangeText];
         }
     }
 }
