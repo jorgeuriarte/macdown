@@ -1,5 +1,40 @@
 # Diario de desarrollo — MacDown (fork propio)
 
+## 2026-06-19 — Edición inline M1: decisión del gap + inspector del visor
+
+### Qué se hizo
+- **Decisión del gap AST↔secciones** (`docs/EDICION-INLINE.md` §7): cmark da hermanos
+  planos sin `<section>`. Se elige **Opción D** (calcular las secciones **al vuelo en JS**
+  desde los headings + `data-sourcepos`, render de cmark **intacto**) para M1; **B-JS**
+  (envolver `<section>` tras cargar) como evolución cuando hagan falta cajas reales;
+  **B-ObjC** sólo para export. A y B-pura descartadas. Prototipo `prototypes/secciones.html`.
+- **Inspector del visor portado al DOM real** (rama `feature/inline-edit-mvp`):
+  `Resources/Extensions/inline-inspector.js`. A diferencia del prototipo (que usaba
+  `<section>`/`data-kind`/`data-md` falsos), aquí deriva el tipo del `tagName` y el rango
+  de `data-sourcepos`, y construye las **Secciones como niveles virtuales** (Opción D).
+  Reaprovecha el puente: postea `block`/`selection` (recuadro/cursor en el editor) y
+  redefine `macdownHighlightLines` (editor→visor), sustituyendo a la selección conectada
+  clásica **mientras vive en la rama**.
+- Empaquetado **sin tocar el `.pbxproj`**: el `.js` cae en la folder-reference
+  `Resources/Extensions` (que se copia íntegra). CI construye también `feature/**`.
+- Se descartó el flag de preferencia (la **rama ya es el aislamiento**, apunte del usuario):
+  el inspector va siempre activo en la rama; una preferencia real llegará al ir hacia master.
+
+### Verificación (de verdad)
+- Build CI verde (build 119) → el ObjC compila. `.app` instalada en `/Applications`,
+  arranca sin crash, `inline-inspector.js` empaquetado.
+- **Validado en el visor real por el usuario** ("funciona, sí"): franja, hover, fijar,
+  reflejo en el editor y, lo clave, el **salto a nivel Sección** (recuadro que abarca toda
+  la sección H2+contenido, inexistente en el HTML) — la Opción D funciona sobre DOM plano.
+- Harness de navegador `/tmp/inspector-harness.html` (DOM plano imitando cmark) para iterar
+  la interacción sin recompilar.
+
+### Pendiente (siguiente sub-hito)
+- **Edición real del fuente**: ✏︎/doble-clic → mini-editor con el Markdown del bloque →
+  reescribir el rango exacto vía `sourcepos` + re-render. Ahora sólo destella.
+- Preferencia real (con UI) al converger hacia master; re-render fino; ediciones que
+  cambian la estructura.
+
 ## 2026-06-19 — Estilo del recuadro de bloque (esquinas + dash + temas)
 
 ### Qué se hizo
