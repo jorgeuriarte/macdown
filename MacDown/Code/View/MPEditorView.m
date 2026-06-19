@@ -247,16 +247,16 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     r.origin.x += origin.x;
     r.origin.y += origin.y;
 
-    // Aire interior generoso (sacrificando margen exterior); se recorta a la
-    // izquierda para no salirse del área visible cuando el texto pega al borde.
+    // Aire interior generoso (sacrificando margen exterior). En párrafos multilínea
+    // el rect del texto llena el ancho del contenedor, así que las verticales de las
+    // esquinas caerían en los márgenes; se clampa a ambos bordes del área visible
+    // para que se vean siempre.
     NSRect box = NSInsetRect(r, -8.0, -5.0);
-    if (box.origin.x < 2.0)
-    {
-        CGFloat d = 2.0 - box.origin.x;
-        box.origin.x += d;
-        box.size.width -= d;
-    }
-    if (box.size.width < 12.0 || box.size.height < 8.0)
+    CGFloat viewW = self.bounds.size.width;
+    CGFloat minX = MAX(2.0, NSMinX(box));
+    CGFloat maxX = MIN(viewW - 2.0, NSMaxX(box));
+    CGFloat minY = NSMinY(box), maxY = NSMaxY(box);
+    if (maxX - minX < 12.0 || maxY - minY < 8.0)
         return;
 
     // ¿bloque grande? cuenta líneas visuales (fragmentos) hasta el umbral.
@@ -271,9 +271,8 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     }
     BOOL big = (lines >= 10);
 
-    CGFloat minX = NSMinX(box), minY = NSMinY(box), maxX = NSMaxX(box), maxY = NSMaxY(box);
-    CGFloat corX = MIN(30.0, box.size.width * 0.45);
-    CGFloat corY = MIN(30.0, box.size.height * 0.45);
+    CGFloat corX = MIN(30.0, (maxX - minX) * 0.45);
+    CGFloat corY = MIN(30.0, (maxY - minY) * 0.45);
 
     NSBezierPath *path = [NSBezierPath bezierPath];
     path.lineWidth = 2.0;
@@ -290,7 +289,7 @@ NS_INLINE BOOL MPAreRectsEqual(NSRect r1, NSRect r2)
     // Trazo central por lado solo en bloques grandes.
     if (big)
     {
-        CGFloat midX = NSMidX(box), midY = NSMidY(box), dl = 34.0;
+        CGFloat midX = (minX + maxX) / 2, midY = (minY + maxY) / 2, dl = 34.0;
         [path moveToPoint:NSMakePoint(midX - dl/2, minY)]; [path lineToPoint:NSMakePoint(midX + dl/2, minY)];
         [path moveToPoint:NSMakePoint(midX - dl/2, maxY)]; [path lineToPoint:NSMakePoint(midX + dl/2, maxY)];
         [path moveToPoint:NSMakePoint(minX, midY - dl/2)]; [path lineToPoint:NSMakePoint(minX, midY + dl/2)];
