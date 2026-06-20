@@ -198,7 +198,7 @@
     var r = boxOf(s);
     fondo.style.left = (r.left - 10) + 'px'; fondo.style.top = (r.top - 8) + 'px';
     fondo.style.width = (r.right - r.left + 20) + 'px'; fondo.style.height = (r.bottom - r.top + 16) + 'px'; fondo.style.opacity = 1;
-    fondolbl.textContent = '▤ ' + (s.name || s.kind);
+    fondolbl.textContent = (ICON[s.kind] || '▤') + ' ' + (s.name || s.kind);
     fondolbl.style.left = (r.left - 10) + 'px'; fondolbl.style.top = (r.top - 8) + 'px'; fondolbl.style.opacity = 1;
   }
   function clearAll() {
@@ -217,17 +217,29 @@
   function clearEditor() { lastSent = ''; post({ type: 'block', startLine: 0, endLine: 0 }); }
 
   // ---------- resolución espacial del objetivo ----------
-  // ¿qué bloque (hermano de body) ocupa esta Y, muestreando en la columna de contenido?
+  // Bloque MÁS PROFUNDO bajo esta Y (muestreando en la columna de texto): así un <li>
+  // se resuelve como ítem suelto, y un ítem padre (en la fila de su propio texto) como
+  // el ítem+subítems. Las tablas son ATÓMICAS (sus filas/celdas son sub-líneas que no
+  // sabemos reescribir por columnas) → se devuelve la <table> entera.
   function blockAtY(y) {
     var c = contentRect(), sx = c.left + (c.right - c.left) * 0.4;
     var el = document.elementFromPoint(sx, y);
-    var leaf = el && el.closest && el.closest('[data-sourcepos]');
-    if (leaf) { while (leaf && leaf.parentElement && leaf.parentElement !== document.body) leaf = leaf.parentElement; }
-    if (leaf && leaf.parentElement === document.body && isContent(leaf)) return leaf;
-    // respaldo geométrico
-    var bs = bodyBlocks();
+    if (el && el.closest) {
+      var tbl = el.closest('table[data-sourcepos]');
+      if (tbl) return tbl;
+      var blk = el.closest('[data-sourcepos]');
+      if (blk && document.body.contains(blk)) return blk;
+    }
+    var bs = bodyBlocks();                              // respaldo geométrico (nivel superior)
     for (var i = 0; i < bs.length; i++) { var r = bs[i].getBoundingClientRect(); if (y >= r.top && y <= r.bottom) return bs[i]; }
     return null;
+  }
+  // Contenedor inmediato de un elemento: su ancestro con data-sourcepos (la <ul> de un
+  // <li>), o, si es de nivel superior, su sección virtual. Se muestra como "fondo".
+  function containerOf(el) {
+    var p = el.parentElement;
+    while (p && p !== document.body) { if (isContent(p)) return blockEntry(p); p = p.parentElement; }
+    return innerSection(bodyBlocks(), el);
   }
   function deepestSectionAtY(blocks, y) {
     var best = null, span = 1e9, secs = allSections(blocks);
@@ -241,7 +253,7 @@
   function resolve(y) {
     var blocks = bodyBlocks(); if (!blocks.length) return null;
     var b = blockAtY(y);
-    if (b) return { prim: blockEntry(b), fondoSection: innerSection(blocks, b) };  // texto de bloque/título → el bloque
+    if (b) return { prim: blockEntry(b), fondoSection: containerOf(b) };            // texto de bloque/ítem/título → ese bloque; fondo=contenedor
     var s = deepestSectionAtY(blocks, y);                                          // hueco dentro de una sección → la sección
     if (s) return { prim: s, fondoSection: null };
     var c = contentRect();                                                         // hueco fuera de toda sección → el documento
@@ -367,13 +379,15 @@
   window.macdownHighlightLines = function (start, end) {
     if (pinned || editing) return;             // no pisar una fijación / edición con el cursor del editor
     if (!start) { primary = null; primSection = null; clearAll(); return; }
-    var bs = bodyBlocks(), best = null, bestSpan = 1e9;
-    for (var i = 0; i < bs.length; i++) {
-      var L = lines(bs[i]);
-      if (L[0] <= start && start <= L[1]) { var sp = L[1] - L[0]; if (sp < bestSpan) { bestSpan = sp; best = bs[i]; } }
+    var els = document.querySelectorAll('[data-sourcepos]'), best = null, bestSpan = 1e9;
+    for (var i = 0; i < els.length; i++) {
+      if (!document.body.contains(els[i])) continue;
+      var L = lines(els[i]);
+      if (L[0] <= start && start <= L[1]) { var sp = L[1] - L[0]; if (sp < bestSpan) { bestSpan = sp; best = els[i]; } }
     }
     if (best) {
-      primary = blockEntry(best); primSection = innerSection(bs, best);
+      var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
+      primary = blockEntry(best); primSection = containerOf(best);
       showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary);
     }
   };
