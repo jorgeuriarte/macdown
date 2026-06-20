@@ -160,14 +160,20 @@
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
 
+  // Rectángulo de contenido. `right` es la COLUMNA DEL TEXTO (mediana de los bordes
+  // derechos de los bloques), no el máximo: así una tabla o un <pre> anchos no arrastran
+  // la franja de activación lejos del texto. Los bloques anchos sobresalen por debajo de
+  // la franja (siguen siendo activables porque la zona llega hasta el borde de la ventana).
   function contentRect() {
-    var bs = bodyBlocks(), l = 1e9, r = -1e9, t = 1e9, b = -1e9;
+    var bs = bodyBlocks(), l = 1e9, t = 1e9, b = -1e9, rights = [];
     for (var i = 0; i < bs.length; i++) {
       var q = bs[i].getBoundingClientRect();
-      if (q.width) { l = Math.min(l, q.left); r = Math.max(r, q.right); t = Math.min(t, q.top); b = Math.max(b, q.bottom); }
+      if (q.width) { l = Math.min(l, q.left); t = Math.min(t, q.top); b = Math.max(b, q.bottom); rights.push(q.right); }
     }
-    if (l > r) { l = 0; r = window.innerWidth; t = 0; b = window.innerHeight; }
-    return { left: l, right: r, top: t, bottom: b };
+    if (!rights.length) return { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight };
+    rights.sort(function (x, y) { return x - y; });
+    var col = rights[Math.floor(rights.length / 2)];
+    return { left: l, right: col, top: t, bottom: b };
   }
 
   function place(boxEl, en, padX, padY) {
