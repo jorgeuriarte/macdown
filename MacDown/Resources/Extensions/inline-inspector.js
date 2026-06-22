@@ -3,23 +3,41 @@
  *
  * Modelo de interacción "fondo de sección" (espacial, Opción D — ver
  * docs/EDICION-INLINE.md). El DOM real de cmark-gfm es HTML PLANO: hermanos sin
- * <section>, con `data-sourcepos` por bloque. Este script:
+ * <section>, con `data-sourcepos` por bloque.
  *
  *   1. Deriva el "tipo" de bloque del tagName y el rango de líneas de `data-sourcepos`.
- *   2. Calcula las SECCIONES al vuelo (Opción D) desde los headings + sourcepos, SIN
- *      crear <section> ni tocar el render de cmark.
- *   3. Resuelve el objetivo por POSICIÓN en la franja de activación (derecha):
- *        - sobre el TEXTO de un bloque (incl. la línea de un título) → ese bloque,
- *          con el "fondo" de su sección contenedora mostrado detrás;
- *        - sobre un HUECO/margen dentro de una sección → la sección entera;
- *        - sobre un hueco fuera de toda sección → el documento.
- *      Así, en cualquier encabezado, se alcanzan los dos niveles (título solo / sección)
- *      sin breadcrumb, flechas ni doble-clic mágico.
+ *   2. Calcula las SECCIONES al vuelo (Opción D) desde los headings + sourcepos.
+ *   3. Resuelve el objetivo por POSICIÓN (la Y elige el bloque; clic en la etiqueta del
+ *      fondo sube al contenedor: ítem→lista→sección→documento).
  *   4. Reutiliza el puente: postea 'block'/'selection' (recuadro/cursor en el editor) y
- *      redefine `macdownHighlightLines` (editor→visor), sustituyendo a la selección
- *      conectada clásica mientras vive en esta rama.
- *   5. Edición: ✏︎ / doble-clic (ya fijado) abre el FUENTE Markdown del objetivo en un
- *      mini-editor in situ; al confirmar, ObjC reescribe el rango exacto y re-renderiza.
+ *      redefine `macdownHighlightLines` (editor→visor).
+ *   5. Edición: ✏︎ / doble-clic (ya fijado) abre el FUENTE Markdown en un mini-editor.
+ *
+ * ───────────────────────────────────────────────────────────────────────────────────
+ *  MÁQUINA DE ESTADOS  —  una sola variable `mode` (única fuente de verdad)
+ * ───────────────────────────────────────────────────────────────────────────────────
+ *  off      No estamos en sólo-visor: no hay inspector. Sólo CAPA A (sincronización
+ *           fuente↔visor: esquinas según el cursor del editor / selección en el visor).
+ *  reading  Sólo-visor, modo escritura OFF. FAB ✎ visible apagado. Sólo CAPA A.
+ *  idle     Modo escritura ON, sin objetivo. Franja visible.
+ *  hover    Modo escritura ON, apuntando un bloque (transitorio).
+ *  pinned   Bloque FIJADO. Habilita ✏︎, doble-clic y promover por etiqueta.
+ *  editing  Mini-editor abierto (sub-estado `previewing` local: textarea ↔ vista previa).
+ *
+ *  Precondiciones (las fija ObjC): available = mode!='off'; writing = mode∈{idle,hover,
+ *  pinned,editing}. Toda transición pasa por setMode(), que es el ÚNICO mutador de `mode`
+ *  y el único sitio que cierra el mini-editor → los estados ilegales (p. ej. apagar el
+ *  modo escritura con el editor abierto) son imposibles por construcción.
+ *
+ *  Qué hace cada entrada según el estado:
+ *    mousemove   sólo idle/hover/pinned (no editing, no overLabel)
+ *    clic=fijar  idle/hover → pinned
+ *    ✏︎/dbl-clic  sólo pinned → editing
+ *    etiqueta    hover/pinned → promueve (pinned)
+ *    Esc         pinned→idle ; editing→idle (cierra)
+ *    FAB ✎       cualquiera salvo editing → postea 'inlineToggle' (ObjC alterna writing)
+ *    set*        ObjC: availability/writingMode → setMode (cierra editor si procede)
+ * ───────────────────────────────────────────────────────────────────────────────────
  */
 (function () {
   if (window.__mdInspector) return;          // idempotente (re-inyección)
@@ -170,24 +188,46 @@
       ov = mk('mdi-ov'), sel = mk('mdi-sel'), tip = mk('mdi-tip');
   var edit = mk('mdi-edit', 'button'); edit.title = 'Editar'; edit.textContent = '✏︎';
   var fab = mk('mdi-fab', 'button'); fab.title = 'Edición inline (modo escritura)'; fab.textContent = '✎';
-  fab.addEventListener('click', function (e) { e.stopPropagation(); if (editing) return; post({ type: 'inlineToggle' }); });
 
-  // ---------- estado ----------
-  var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
+  // ---------- ESTADO ----------
+  var mode = 'off';                            // off | reading | idle | hover | pinned | editing
+  var primary = null, primSection = null;      // objetivo resuelto y su contenedor (datos)
   var overLabel = false;                       // ratón sobre la etiqueta del fondo (congela la selección)
-  var curChain = null, curLevel = 0;          // cadena de contenedores y nivel actual (X en la franja)
-  var _inlinePreviewCb = null;                // callback del resultado de "Vista previa"
-  var _inlineCancel = null;                   // cierra/cancela el mini-editor abierto (para Esc global)
-  // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
-  // fuente↔visor: las esquinas reflejan el bloque del cursor del editor). El inspector
-  // espacial (franja, fondo, hover, fijar, ✏︎) sólo aparece con el modo escritura ON.
-  var writingMode = false, inlineAvailable = false;
-  gutter.style.display = 'none';             // oculta hasta entrar en modo escritura
+  var curChain = null, curLevel = 0;           // (reservado) cadena de contenedores y nivel
+  var _inlinePreviewCb = null;                 // callback del resultado de "Vista previa"
+  var _inlineCancel = null;                    // limpieza del mini-editor abierto (la usa setMode)
+  var GUT = 0.16, lastSent = '';
+  gutter.style.display = 'none';               // oculta hasta entrar en modo escritura
+
+  function isAvailable() { return mode !== 'off'; }
+  function isWriting() { return mode === 'idle' || mode === 'hover' || mode === 'pinned' || mode === 'editing'; }
+
+  // ÚNICO mutador de `mode`. Cierra el mini-editor al salir de 'editing', limpia el
+  // objetivo en los estados sin selección, y reconfigura el "chrome" (applyChrome).
+  function setMode(next) {
+    if (next === mode) return;
+    var was = mode;
+    mode = next;
+    if (was === 'editing' && _inlineCancel) { var c = _inlineCancel; _inlineCancel = null; c(); }
+    if (next === 'off' || next === 'reading' || next === 'idle') {
+      primary = null; primSection = null; clearEditor();
+    }
+    applyChrome();
+  }
+  // Posiciona/oculta el chrome estático (FAB, franja) y limpia overlays en los estados
+  // sin selección. Los overlays de selección los dibuja render() en hover/pinned.
+  function applyChrome() {
+    fab.style.display = isAvailable() ? 'flex' : 'none';
+    fab.classList.toggle('on', isWriting());
+    var spatial = isWriting() && mode !== 'editing';
+    gutter.style.display = spatial ? '' : 'none';
+    if (mode !== 'hover' && mode !== 'pinned') { gutter.classList.remove('hot'); clearAll(); }
+    if (spatial) positionGutter();
+  }
 
   // Rectángulo de contenido. `right` es la COLUMNA DEL TEXTO (mediana de los bordes
   // derechos de los bloques), no el máximo: así una tabla o un <pre> anchos no arrastran
-  // la franja de activación lejos del texto. Los bloques anchos sobresalen por debajo de
-  // la franja (siguen siendo activables porque la zona llega hasta el borde de la ventana).
+  // la franja de activación lejos del texto.
   function contentRect() {
     var bs = bodyBlocks(), l = 1e9, t = 1e9, b = -1e9, rights = [];
     for (var i = 0; i < bs.length; i++) {
@@ -199,10 +239,7 @@
     var col = rights[Math.floor(rights.length / 2)];
     return { left: l, right: col, top: t, bottom: b };
   }
-
-  // X de la "línea de activación" (borde izquierdo de la franja): a GUT del borde del
-  // texto. La franja (gradiente) se dibuja desde aquí hasta el borde de la ventana, y el
-  // botón ✏︎ se ancla aquí (no al borde del bloque), para quedar junto a la franja.
+  // X de la "línea de activación" (borde izquierdo de la franja): a GUT del borde del texto.
   function activationX() { var c = contentRect(); return c.right - (c.right - c.left) * GUT; }
 
   function place(boxEl, en, padX, padY) {
@@ -218,8 +255,8 @@
     tip.style.left = (r.left - 6) + 'px'; tip.style.top = Math.max(4, r.top - 26) + 'px'; tip.style.opacity = 1;
   }
   function showEdit(en) {
-    // El ✏︎ sólo aparece con el bloque FIJADO (no en hover transitorio) y nunca en el doc.
-    if (!pinned || en.kind === 'Documento') { edit.classList.remove('on'); return; }
+    // El ✏︎ sólo aparece con el bloque FIJADO (no en hover) y nunca en el documento.
+    if (mode !== 'pinned' || en.kind === 'Documento') { edit.classList.remove('on'); return; }
     var r = boxOf(en);
     edit.style.left = (activationX() - 13) + 'px';     // junto a la línea de activación
     edit.style.top = Math.max(6, r.top - 13) + 'px';
@@ -251,10 +288,6 @@
   function clearEditor() { lastSent = ''; post({ type: 'block', startLine: 0, endLine: 0 }); }
 
   // ---------- resolución espacial del objetivo ----------
-  // Bloque MÁS PROFUNDO bajo esta Y (muestreando en la columna de texto): así un <li>
-  // se resuelve como ítem suelto, y un ítem padre (en la fila de su propio texto) como
-  // el ítem+subítems. Las tablas son ATÓMICAS (sus filas/celdas son sub-líneas que no
-  // sabemos reescribir por columnas) → se devuelve la <table> entera.
   // <li> hijo directo de una lista más cercano a la Y (para huecos entre ítems).
   function nearestChildLi(list, y) {
     var lis = list.querySelectorAll(':scope > li[data-sourcepos]'), best = null, bd = 1e9;
@@ -265,12 +298,13 @@
     }
     return best;
   }
+  // Bloque MÁS PROFUNDO bajo esta Y (muestreando en la columna de texto). Tablas atómicas.
   function blockAtY(y) {
     var c = contentRect(), sx = c.left + (c.right - c.left) * 0.4;
     var el = document.elementFromPoint(sx, y);
     if (el && el.closest) {
       var tbl = el.closest('table[data-sourcepos]');
-      if (tbl) return tbl;                             // tabla atómica
+      if (tbl) return tbl;
       var blk = el.closest('[data-sourcepos]');
       if (blk && document.body.contains(blk)) return blk;
     }
@@ -294,34 +328,8 @@
     }
     return best;
   }
-  // Bloque más cercano a una Y (para huecos entre bloques).
-  function nearestBlockToY(y) {
-    var bs = bodyBlocks(), best = null, bd = 1e9;
-    for (var i = 0; i < bs.length; i++) {
-      var r = bs[i].getBoundingClientRect();
-      var d = (y < r.top) ? (r.top - y) : (y > r.bottom ? (y - r.bottom) : 0);
-      if (d < bd) { bd = d; best = bs[i]; }
-    }
-    return best;
-  }
-  // Cadena CANÓNICA de un bloque (niveles fijos, sin intermedios de anidamiento):
-  //   depth 0: el bloque (la hoja que elige la Y; ítem concreto, párrafo, título…)
-  //   depth 1: su contenedor de NIVEL SUPERIOR (la lista/cita entera), si la hoja anida
-  //   depth 2: la sección (heading) más interna que lo contiene, si la hay
-  //   depth 3: el documento
-  function chainFor(leaf) {
-    var blocks = bodyBlocks(), chain = [];
-    var e0 = blockEntry(leaf); e0.depth = 0; chain.push(e0);
-    var top = leaf; while (top.parentElement && top.parentElement !== document.body) top = top.parentElement;
-    if (top !== leaf && isContent(top)) { var e1 = blockEntry(top); e1.depth = 1; chain.push(e1); }
-    var sec = innerSection(blocks, (isContent(top) ? top : leaf));
-    if (sec) { sec.depth = 2; chain.push(sec); }
-    var d = docEntry(blocks); d.depth = 3; chain.push(d);
-    return chain;
-  }
-  // Apuntas al TEXTO de un bloque → ese bloque (el más profundo: ítem, párrafo, título),
-  // con su contenedor de fondo. Apuntas a un HUECO/margen dentro de una sección → la
-  // sección. Fuera de toda sección → el documento.
+  // Apuntas al TEXTO de un bloque → ese bloque (el más profundo); a un HUECO dentro de una
+  // sección → la sección; fuera de toda sección → el documento.
   function resolve(y) {
     var blocks = bodyBlocks(); if (!blocks.length) return null;
     var b = blockAtY(y);
@@ -333,17 +341,17 @@
     return null;
   }
 
+  // Dibuja el objetivo. `sel` (esquinas) si pinned; `ov` (relleno) si hover.
   function render(box) {
     primary = box.prim; primSection = box.fondoSection || null;
     if (box.chain) { curChain = box.chain; curLevel = box.level; }
     showFondo(primSection);
-    var target = pinned ? sel : ov; (pinned ? ov : sel).style.opacity = 0;
+    var isPinned = (mode === 'pinned');
+    var target = isPinned ? sel : ov; (isPinned ? ov : sel).style.opacity = 0;
     place(target, primary, 5, 4); showTip(primary); showEdit(primary);
-    sendEditor(primary, pinned ? 'selection' : 'block');
+    sendEditor(primary, isPinned ? 'selection' : 'block');
   }
-  function unpin() { pinned = false; clearAll(); primary = null; primSection = null; clearEditor(); }
 
-  // ---------- interacción base ----------
   function positionGutter() {
     var ax = activationX();
     gutter.style.left = ax + 'px';
@@ -351,87 +359,89 @@
   }
   positionGutter();
 
-  // Subir al contenedor: clic en la etiqueta del fondo (• Lista / ▤ Sección) promueve la
-  // selección un nivel (ítem→lista→sección→documento). Mientras el ratón está sobre la
-  // etiqueta, se congela la selección (overLabel) para que no cambie al acercarte.
+  // Subir al contenedor: clic en la etiqueta del fondo promueve la selección un nivel
+  // (ítem→lista→sección→documento). overLabel congela la selección mientras la sobrevuelas.
   function parentOf(en) {
     if (!en || en.kind === 'Documento') return null;
     if (en.kind === 'Sección' || en.kind === 'Subsección' || en.kind === 'Apartado')
-      return docEntry(bodyBlocks());             // (simplificación) el padre de una sección = documento
-    return containerOf(en.first);                // bloque → su contenedor (lista→sección…)
+      return docEntry(bodyBlocks());
+    return containerOf(en.first);
   }
   function promote() {
     if (!primSection) return;
-    primary = primSection; pinned = true;
-    primSection = parentOf(primary);
+    primary = primSection; primSection = parentOf(primary);
+    setMode('pinned');
     ov.style.opacity = 0; place(sel, primary, 5, 4); showFondo(primSection); showTip(primary); showEdit(primary);
     sendEditor(primary, 'selection');
   }
   fondolbl.addEventListener('mouseenter', function () { overLabel = true; });
   fondolbl.addEventListener('mouseleave', function () { overLabel = false; });
-  fondolbl.addEventListener('click', function (e) { e.stopPropagation(); if (writingMode && !editing) promote(); });
+  fondolbl.addEventListener('click', function (e) { e.stopPropagation(); if (mode === 'hover' || mode === 'pinned') promote(); });
 
+  // ---------- entradas (gated por `mode`) ----------
   window.addEventListener('mousemove', function (e) {
-    if (editing || !writingMode || overLabel) return;
-    if (pinned) {                                  // se mantiene fijado hasta salir del primario (con margen) o Esc
+    if (mode === 'editing' || !isWriting() || overLabel) return;
+    if (mode === 'pinned') {                        // se mantiene fijado hasta salir del primario (con margen)
       var r = boxOf(primary);
       var safe = e.target === edit || edit.contains(e.target) || e.target === fondolbl ||
         (e.clientX > r.left - 12 && e.clientX < r.right + 60 && e.clientY > r.top - 16 && e.clientY < r.bottom + 14);
-      if (!safe) unpin();
+      if (!safe) setMode('idle');
       return;
     }
     var c = contentRect();
     var inZone = e.clientX > activationX() && e.clientX < window.innerWidth &&
                  e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
-    if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientY); if (box) render(box); else clearAll(); }
-    else { gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; clearEditor(); }
+    if (inZone) {
+      var box = resolve(e.clientY);
+      if (box) { render(box); gutter.classList.add('hot'); setMode('hover'); }
+      else { setMode('idle'); }
+    } else { setMode('idle'); }
   });
 
   // clic en la franja = fijar
   window.addEventListener('click', function (e) {
-    if (editing || !writingMode || e.target === edit || edit.contains(e.target) || e.target === fondolbl || (e.target.closest && e.target.closest('.mdi-edid'))) return;
+    if (mode === 'editing' || !isWriting() || e.target === edit || edit.contains(e.target) ||
+        e.target === fondolbl || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     var c = contentRect();
     var inZone = e.clientX > activationX() && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
-    if (inZone && primary) { pinned = true; render({ prim: primary, fondoSection: primSection }); }
+    if (inZone && primary) { setMode('pinned'); render({ prim: primary, fondoSection: primSection }); }
   });
 
   // doble-clic (sólo ya fijado) o ✏︎ = editar
   window.addEventListener('dblclick', function (e) {
-    if (editing || !writingMode || (e.target.closest && e.target.closest('.mdi-edid'))) return;
-    if (pinned && primary) { e.preventDefault(); requestEdit(primary); }
+    if (mode === 'editing' || !isWriting() || (e.target.closest && e.target.closest('.mdi-edid'))) return;
+    if (mode === 'pinned' && primary) { e.preventDefault(); requestEdit(primary); }
   });
-  edit.addEventListener('click', function () { if (writingMode && pinned && primary) requestEdit(primary); });
+  edit.addEventListener('click', function () { if (mode === 'pinned' && primary) requestEdit(primary); });
+  fab.addEventListener('click', function (e) { e.stopPropagation(); if (mode === 'editing') return; post({ type: 'inlineToggle' }); });
 
   window.addEventListener('keydown', function (e) {
-    if (editing) {                                   // mientras editas, Esc cancela (también en Vista previa)
-      if (e.key === 'Escape' && _inlineCancel) { e.preventDefault(); _inlineCancel(); }
-      return;
-    }
-    if (!writingMode) return;
-    if (e.key === 'Escape' && pinned) unpin();
+    if (e.key !== 'Escape') return;
+    if (mode === 'editing') { e.preventDefault(); setMode('idle'); }   // cierra el mini-editor
+    else if (mode === 'pinned') setMode('idle');                       // suelta la fijación
   });
 
   window.addEventListener('resize', positionGutter);
   window.addEventListener('scroll', function () {
     positionGutter();
-    if (primary) { place(pinned ? sel : ov, primary, 5, 4); showTip(primary); showEdit(primary); if (primSection) showFondo(primSection); }
+    if (primary) { place(mode === 'pinned' ? sel : ov, primary, 5, 4); showTip(primary); showEdit(primary); if (primSection) showFondo(primSection); }
   }, { passive: true });
 
   // ---------- edición del fuente ----------
   function requestEdit(en) {
-    if (!en || en.kind === 'Documento' || editing) return;
+    if (!en || en.kind === 'Documento' || mode === 'editing') return;
     post({ type: 'inlineEdit', startLine: en.s, endLine: en.e });
   }
-  // Hermanos de <body> de en.first..en.last (uno para bloques; varios para una Sección virtual).
+  // Hermanos de <body> de en.first..en.last (uno para bloques; varios para una Sección).
   function spanFromTo(first, last) {
     if (first === last) return [first];
     var out = [], n = first;
     while (n) { out.push(n); if (n === last) break; n = n.nextElementSibling; }
     return out;
   }
-  // Llamado desde ObjC con el fuente del rango: abre el mini-editor in situ.
+  // Llamado desde ObjC con el fuente del rango: abre el mini-editor in situ → mode 'editing'.
   window.macdownOpenInlineEditor = function (s, e, text) {
-    if (editing) return;
+    if (mode === 'editing') return;
     var en = primary;
     if (!en || en.s !== s || en.e !== e) {
       var bs = bodyBlocks();
@@ -441,7 +451,6 @@
       }
     }
     if (!en) return;
-    editing = true;
     var hide = spanFromTo(en.first, en.last);
     var wrap = document.createElement('div'); wrap.className = 'mdi-edid';
     var ta = document.createElement('textarea'); ta.value = text != null ? text : '';
@@ -458,21 +467,21 @@
     wrap.appendChild(ta); wrap.appendChild(prev); wrap.appendChild(bar);
     hide[0].parentNode.insertBefore(wrap, hide[0]);
     for (var k = 0; k < hide.length; k++) hide[k].style.display = 'none';
-    clearAll(); pinned = false;
+
+    // Limpieza del DOM del editor (idempotente). NO toca `mode`: lo invoca setMode al salir.
+    function cleanup() {
+      _inlinePreviewCb = null;
+      if (wrap.parentNode) wrap.remove();
+      for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
+    }
+    _inlineCancel = cleanup;
+    setMode('editing');                          // entra en el estado (oculta franja/overlays)
 
     var previewing = false;
     function autosize() { ta.style.height = 'auto'; ta.style.height = Math.max(60, ta.scrollHeight) + 'px'; }
-    function close() {
-      if (!editing) return;                      // idempotente (Esc global + textarea, doble cierre)
-      _inlinePreviewCb = null; _inlineCancel = null;
-      wrap.remove();
-      for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
-      editing = false;
-    }
-    _inlineCancel = close;                        // Esc global cancela este editor
     ta.addEventListener('input', autosize);
-    cancel.onclick = function () { close(); };
-    done.onclick = function () { post({ type: 'inlineEditCommit', startLine: en.s, endLine: en.e, text: ta.value }); close(); };
+    cancel.onclick = function () { setMode('idle'); };
+    done.onclick = function () { post({ type: 'inlineEditCommit', startLine: en.s, endLine: en.e, text: ta.value }); setMode('idle'); };
     // Vista previa: renderiza el markdown editado con el MISMO motor (cmark, vía ObjC).
     view.onclick = function () {
       if (!previewing) {
@@ -487,14 +496,14 @@
     };
     ta.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); done.onclick(); }
-      else if (ev.key === 'Escape') { ev.preventDefault(); cancel.onclick(); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); setMode('idle'); }
     });
     ta.focus(); autosize();
   };
 
-  // ---------- editor → visor ----------
+  // ---------- editor → visor (CAPA A + pista en escritura) ----------
   window.macdownHighlightLines = function (start, end) {
-    if (pinned || editing) return;             // no pisar una fijación / edición con el cursor del editor
+    if (mode === 'pinned' || mode === 'editing') return;   // no pisar fijación/edición
     if (!start) { primary = null; primSection = null; clearAll(); return; }
     var els = document.querySelectorAll('[data-sourcepos]'), best = null, bestSpan = 1e9;
     for (var i = 0; i < els.length; i++) {
@@ -505,15 +514,14 @@
     if (!best) return;
     var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
     primary = blockEntry(best); primSection = containerOf(best);
-    if (writingMode) { showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary); }
-    else { ov.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0; place(sel, primary, 5, 4); }  // CAPA A: esquinas de sincronización
+    if (isWriting()) { showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary); }
+    else { ov.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0; place(sel, primary, 5, 4); }  // CAPA A: esquinas
   };
 
-  // Preview→editor (CAPA A, sólo en lectura): seleccionar/clicar en el visor lleva el
-  // cursor del editor al bloque y dibuja las esquinas. En modo escritura, el clic fija
-  // (lo gestiona el handler de click), así que aquí no se hace nada.
+  // Preview→editor (CAPA A, sólo cuando NO se escribe): seleccionar/clicar en el visor
+  // lleva el cursor del editor al bloque y dibuja las esquinas.
   document.addEventListener('selectionchange', function () {
-    if (writingMode || editing) return;
+    if (isWriting()) return;                     // en escritura el clic fija (lo gestiona el handler de click)
     var s0 = window.getSelection(); if (!s0 || s0.rangeCount === 0) return;
     var node = s0.anchorNode; if (node && node.nodeType === 3) node = node.parentElement;
     var el = node && node.closest && node.closest('[data-sourcepos]');
@@ -524,28 +532,15 @@
     post({ type: 'selection', startLine: en.s, endLine: en.e });
   });
 
-  // ---------- modo escritura (lo conmuta ObjC desde el toggle de la toolbar) ----------
-  function applyMode() {
-    if (writingMode) { gutter.style.display = ''; positionGutter(); }
-    else { pinned = false; gutter.style.display = 'none'; gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; }
-  }
-  window.macdownSetWritingMode = function (on) {
-    on = !!on;
-    if (!on && editing && _inlineCancel) _inlineCancel();   // no dejar un editor huérfano
-    if (on !== writingMode) { writingMode = on; applyMode(); }
-    fab.classList.toggle('on', writingMode);
-  };
-  // Disponibilidad de la edición inline (la fija ObjC = estamos en sólo-visor). Muestra/
-  // oculta el botón flotante; si deja de estar disponible, apaga el modo escritura.
+  // ---------- setters de ObjC (availability = sólo-visor; writingMode = FAB) ----------
   window.macdownSetInlineAvailable = function (on) {
-    inlineAvailable = !!on;
-    fab.style.display = inlineAvailable ? 'flex' : 'none';
-    if (!inlineAvailable) {
-      if (editing && _inlineCancel) _inlineCancel();        // cierra el editor antes de apagar
-      if (writingMode) { writingMode = false; applyMode(); fab.classList.remove('on'); }
-    }
+    if (on) { if (mode === 'off') setMode('reading'); }
+    else { setMode('off'); }                     // setMode cierra el editor si lo hubiera
   };
-  window.macdownInlineWritingMode = function () { return writingMode; };
-  // Resultado de la vista previa (ObjC renderiza el fragmento con cmark y lo devuelve).
+  window.macdownSetWritingMode = function (on) {
+    if (on) { if (isAvailable() && !isWriting()) setMode('idle'); }
+    else if (isWriting()) { setMode('reading'); }   // cierra el editor si lo hubiera
+  };
+  window.macdownInlineWritingMode = function () { return isWriting(); };
   window.macdownInlinePreviewResult = function (html) { if (_inlinePreviewCb) _inlinePreviewCb(html); };
 })();
