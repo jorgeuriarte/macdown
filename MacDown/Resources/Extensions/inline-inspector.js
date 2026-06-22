@@ -159,6 +159,11 @@
 
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
+  // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
+  // fuente↔visor: las esquinas reflejan el bloque del cursor del editor). El inspector
+  // espacial (franja, fondo, hover, fijar, ✏︎) sólo aparece con el modo escritura ON.
+  var writingMode = false;
+  gutter.style.display = 'none';             // oculta hasta entrar en modo escritura
 
   // Rectángulo de contenido. `right` es la COLUMNA DEL TEXTO (mediana de los bordes
   // derechos de los bloques), no el máximo: así una tabla o un <pre> anchos no arrastran
@@ -278,7 +283,7 @@
   positionGutter();
 
   window.addEventListener('mousemove', function (e) {
-    if (editing) return;
+    if (editing || !writingMode) return;
     if (pinned) {                                  // se mantiene fijado hasta salir del primario (con margen) o Esc
       var r = boxOf(primary);
       var safe = e.target === edit || edit.contains(e.target) ||
@@ -295,7 +300,7 @@
 
   // clic en la franja = fijar
   window.addEventListener('click', function (e) {
-    if (editing || e.target === edit || edit.contains(e.target) || (e.target.closest && e.target.closest('.mdi-edid'))) return;
+    if (editing || !writingMode || e.target === edit || edit.contains(e.target) || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     var c = contentRect();
     var inZone = e.clientX > c.right - (c.right - c.left) * GUT && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
     if (inZone && primary) { pinned = true; render({ prim: primary, fondoSection: primSection }); }
@@ -303,13 +308,13 @@
 
   // doble-clic (sólo ya fijado) o ✏︎ = editar
   window.addEventListener('dblclick', function (e) {
-    if (editing || (e.target.closest && e.target.closest('.mdi-edid'))) return;
+    if (editing || !writingMode || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     if (pinned && primary) { e.preventDefault(); requestEdit(primary); }
   });
-  edit.addEventListener('click', function () { if (primary) requestEdit(primary); });
+  edit.addEventListener('click', function () { if (writingMode && primary) requestEdit(primary); });
 
   window.addEventListener('keydown', function (e) {
-    if (editing) return;
+    if (editing || !writingMode) return;
     if (e.key === 'Escape' && pinned) unpin();
   });
 
@@ -385,10 +390,35 @@
       var L = lines(els[i]);
       if (L[0] <= start && start <= L[1]) { var sp = L[1] - L[0]; if (sp < bestSpan) { bestSpan = sp; best = els[i]; } }
     }
-    if (best) {
-      var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
-      primary = blockEntry(best); primSection = containerOf(best);
-      showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary);
-    }
+    if (!best) return;
+    var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
+    primary = blockEntry(best); primSection = containerOf(best);
+    if (writingMode) { showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary); }
+    else { ov.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0; place(sel, primary, 5, 4); }  // CAPA A: esquinas de sincronización
   };
+
+  // Preview→editor (CAPA A, sólo en lectura): seleccionar/clicar en el visor lleva el
+  // cursor del editor al bloque y dibuja las esquinas. En modo escritura, el clic fija
+  // (lo gestiona el handler de click), así que aquí no se hace nada.
+  document.addEventListener('selectionchange', function () {
+    if (writingMode || editing) return;
+    var s0 = window.getSelection(); if (!s0 || s0.rangeCount === 0) return;
+    var node = s0.anchorNode; if (node && node.nodeType === 3) node = node.parentElement;
+    var el = node && node.closest && node.closest('[data-sourcepos]');
+    if (!el) return;
+    var tbl = el.closest('table[data-sourcepos]'); if (tbl) el = tbl;
+    var en = blockEntry(el); primary = en; primSection = null;
+    place(sel, en, 5, 4);
+    post({ type: 'selection', startLine: en.s, endLine: en.e });
+  });
+
+  // ---------- modo escritura (lo conmuta ObjC desde el toggle de la toolbar) ----------
+  function applyMode() {
+    if (writingMode) { gutter.style.display = ''; positionGutter(); }
+    else { pinned = false; gutter.style.display = 'none'; gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; }
+  }
+  window.macdownSetWritingMode = function (on) {
+    on = !!on; if (on === writingMode) return; writingMode = on; applyMode();
+  };
+  window.macdownInlineWritingMode = function () { return writingMode; };
 })();

@@ -210,6 +210,10 @@ typedef NS_ENUM(NSInteger, MPDefaultLayout) {
 @property BOOL copying;
 @property BOOL printing;
 @property BOOL shouldHandleBoundsChange;
+/// Modo escritura (edición inline) activo. Por documento, no se persiste; arranca OFF
+/// (lectura limpia). Lo conmuta el toggle de la toolbar; al cambiar se empuja al JS del
+/// visor (macdownSetWritingMode) y se reaplica tras cada re-render.
+@property (nonatomic) BOOL inlineWritingMode;
 @property BOOL isPreviewReady;
 @property (strong) NSURL *currentBaseUrl;
 @property CGFloat lastPreviewScrollTop;
@@ -1846,6 +1850,10 @@ static NSString *MPJSStringLiteral(NSString *s)
         [self.renderer parseAndRenderNow];
     self.renderToWebPending = NO;
 
+    // El inspector se reinyecta con cada HTML nuevo (writingMode arranca OFF en el JS):
+    // reaplica el modo escritura del documento para que sobreviva al re-render.
+    [self mp_pushInlineWritingModeToPreview];
+
     if (self.preferences.editorShowWordCount)
         [self updateWordCount];
 
@@ -2320,6 +2328,65 @@ static NSString *MPJSStringLiteral(NSString *s)
     [self.windowForSheet toggleToolbarShown:sender];
 }
 
+#pragma mark - Edición inline (modo escritura)
+
+// Toggle de la toolbar (botón PushOnPushOff). En sólo-visor no aplica (no hay editor
+// que editar) → se fuerza OFF.
+- (IBAction)toggleInlineWritingMode:(id)sender
+{
+    if (![self editorVisible])
+        self.inlineWritingMode = NO;
+    else if ([sender isKindOfClass:[NSButton class]])
+        self.inlineWritingMode = ([(NSButton *)sender state] == NSControlStateValueOn);
+    else
+        self.inlineWritingMode = !self.inlineWritingMode;
+    [self mp_pushInlineWritingModeToPreview];
+    [self mp_updateInlineWritingToolbarState];
+}
+
+// Empuja el estado al JS del visor. Como el inspector se reinyecta en cada re-render,
+// también se llama desde didFinishNavigation:.
+- (void)mp_pushInlineWritingModeToPreview
+{
+    if (![self usesWKWebView] || !self.wkPreview)
+        return;
+    NSString *js = [NSString stringWithFormat:
+        @"window.macdownSetWritingMode&&window.macdownSetWritingMode(%@);",
+        self.inlineWritingMode ? @"true" : @"false"];
+    [self.wkPreview evaluateJavaScript:js completionHandler:nil];
+}
+
+// Refleja on/off (y habilitado/deshabilitado) en el botón de la toolbar.
+- (void)mp_updateInlineWritingToolbarState
+{
+    for (NSToolbarItem *it in self.windowForSheet.toolbar.items)
+    {
+        if (![it.itemIdentifier isEqualToString:@"inline-edit"])
+            continue;
+        NSButton *b = (NSButton *)it.view;
+        if ([b isKindOfClass:[NSButton class]])
+        {
+            b.state = self.inlineWritingMode ? NSControlStateValueOn : NSControlStateValueOff;
+            b.enabled = [self editorVisible];
+        }
+        break;
+    }
+}
+
+// C: en sólo-visor se oculta la toolbar (estás leyendo) y el modo escritura se fuerza
+// OFF (sin editor no aplica). Al volver a mostrar el editor, se restaura la toolbar.
+- (void)mp_syncChromeForLayout:(MPDefaultLayout)mode
+{
+    BOOL previewOnly = (mode == MPDefaultLayoutPreviewOnly);
+    self.windowForSheet.toolbar.visible = !previewOnly;
+    if (previewOnly && self.inlineWritingMode)
+    {
+        self.inlineWritingMode = NO;
+        [self mp_pushInlineWritingModeToPreview];
+    }
+    [self mp_updateInlineWritingToolbarState];
+}
+
 - (IBAction)togglePreviewPane:(id)sender
 {
     [self toggleSplitterCollapsingEditorPane:NO];
@@ -2355,6 +2422,7 @@ static NSString *MPJSStringLiteral(NSString *s)
             break;
         }
     }
+    [self mp_syncChromeForLayout:mode];
 }
 
 - (IBAction)showEditorAndPreview:(id)sender
