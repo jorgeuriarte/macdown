@@ -177,6 +177,7 @@
   var overLabel = false;                       // ratón sobre la etiqueta del fondo (congela la selección)
   var curChain = null, curLevel = 0;          // cadena de contenedores y nivel actual (X en la franja)
   var _inlinePreviewCb = null;                // callback del resultado de "Vista previa"
+  var _inlineCancel = null;                   // cierra/cancela el mini-editor abierto (para Esc global)
   // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
   // fuente↔visor: las esquinas reflejan el bloque del cursor del editor). El inspector
   // espacial (franja, fondo, hover, fijar, ✏︎) sólo aparece con el modo escritura ON.
@@ -400,7 +401,11 @@
   edit.addEventListener('click', function () { if (writingMode && pinned && primary) requestEdit(primary); });
 
   window.addEventListener('keydown', function (e) {
-    if (editing || !writingMode) return;
+    if (editing) {                                   // mientras editas, Esc cancela (también en Vista previa)
+      if (e.key === 'Escape' && _inlineCancel) { e.preventDefault(); _inlineCancel(); }
+      return;
+    }
+    if (!writingMode) return;
     if (e.key === 'Escape' && pinned) unpin();
   });
 
@@ -442,9 +447,10 @@
     var lab = document.createElement('span');
     lab.textContent = 'editando ' + en.kind + ' · L' + en.s + (en.e !== en.s ? '–' + en.e : '') + ' (markdown fuente)';
     var prev = document.createElement('div'); prev.className = 'mdi-edprev'; prev.style.display = 'none';
+    prev.setAttribute('tabindex', '-1');         // enfocable → el Esc global llega también en Vista previa
     var btns = document.createElement('span');
     var cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancelar';
-    var view = document.createElement('button'); view.className = 'view'; view.textContent = 'Vista';
+    var view = document.createElement('button'); view.className = 'view'; view.textContent = 'Vista previa';
     var done = document.createElement('button'); done.className = 'done'; done.textContent = 'Hecho';
     btns.appendChild(cancel); btns.appendChild(view); btns.appendChild(done); bar.appendChild(lab); bar.appendChild(btns);
     wrap.appendChild(ta); wrap.appendChild(prev); wrap.appendChild(bar);
@@ -455,11 +461,12 @@
     var previewing = false;
     function autosize() { ta.style.height = 'auto'; ta.style.height = Math.max(60, ta.scrollHeight) + 'px'; }
     function close() {
-      _inlinePreviewCb = null;
+      _inlinePreviewCb = null; _inlineCancel = null;
       wrap.remove();
       for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
       editing = false;
     }
+    _inlineCancel = close;                        // Esc global cancela este editor
     ta.addEventListener('input', autosize);
     cancel.onclick = function () { close(); };
     done.onclick = function () { post({ type: 'inlineEditCommit', startLine: en.s, endLine: en.e, text: ta.value }); close(); };
@@ -470,8 +477,9 @@
         ta.style.display = 'none'; prev.style.display = ''; previewing = true; view.textContent = 'Editar';
         _inlinePreviewCb = function (html) { prev.innerHTML = html; };
         post({ type: 'inlinePreview', text: ta.value });
+        prev.focus();                            // mantiene el foco en el visor → Esc cancela
       } else {
-        prev.style.display = 'none'; ta.style.display = ''; previewing = false; view.textContent = 'Vista'; ta.focus();
+        prev.style.display = 'none'; ta.style.display = ''; previewing = false; view.textContent = 'Vista previa'; ta.focus();
       }
     };
     ta.addEventListener('keydown', function (ev) {
