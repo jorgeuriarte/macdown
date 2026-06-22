@@ -487,7 +487,10 @@
       if (!previewing) {
         prev.innerHTML = '<div style="opacity:.5;font:13px system-ui,sans-serif">renderizando…</div>';
         ta.style.display = 'none'; prev.style.display = ''; previewing = true; view.textContent = 'Editar';
-        _inlinePreviewCb = function (html) { prev.innerHTML = html; };
+        _inlinePreviewCb = function (html) {
+          prev.innerHTML = html;
+          if (window.macdownRenderMermaid) window.macdownRenderMermaid(prev);   // diagramas en la Vista previa
+        };
         post({ type: 'inlinePreview', text: ta.value });
         prev.focus();                            // mantiene el foco en el visor → Esc cancela
       } else {
