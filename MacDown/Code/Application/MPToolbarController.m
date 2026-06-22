@@ -108,9 +108,7 @@ static CGFloat itemWidth = 37;
             @[
               lightModeMenuItem, darkModeMenuItem, sepiaModeMenuItem
             ]
-        ],
-        // Appended at the end (índices estables): toggle del modo escritura (edición inline).
-        [self inlineEditToolbarItem]
+        ]
     ];
     
     self->toolbarItemIdentifiers = [self toolbarItemIdentifiersFromItemsArray:self->toolbarItems];
@@ -268,39 +266,6 @@ static CGFloat itemWidth = 37;
     [self->toolbarItemIdentifierObjectDictionary setObject:itemGroup forKey:itemIdentifier];
     
     return itemGroup;
-}
-
-/**
- * Toggle del modo escritura (edición inline). Botón PushOnPushOff con SF Symbol; su
- * estado on/off lo refleja MPDocument (mp_updateInlineWritingToolbarState).
- */
-- (NSToolbarItem *)inlineEditToolbarItem {
-    NSToolbarItem *toolbarItem = [[NSToolbarItem alloc] initWithItemIdentifier:@"inline-edit"];
-    NSString *label = NSLocalizedString(@"Inline Edit", @"Inline editing mode toolbar toggle");
-    toolbarItem.label = label;
-    toolbarItem.paletteLabel = label;
-    toolbarItem.toolTip = NSLocalizedString(@"Modo escritura: editar bloques desde el visor", @"Inline edit toolbar tooltip");
-
-    NSImage *icon = nil;
-    if (@available(macOS 11.0, *))
-        icon = [NSImage imageWithSystemSymbolName:@"square.and.pencil" accessibilityDescription:label];
-    if (!icon)
-        icon = [NSImage imageNamed:@"ToolbarIconComment"];      // respaldo en macOS antiguos
-    [icon setTemplate:YES];
-    [icon setSize:CGSizeMake(19, 19)];
-
-    NSButton *button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, itemWidth, 27)];
-    button.image = icon;
-    button.imageScaling = NSImageScaleProportionallyDown;
-    button.bezelStyle = NSBezelStyleTexturedRounded;
-    [button setButtonType:NSButtonTypePushOnPushOff];           // se queda "pulsado" en ON
-    button.focusRingType = NSFocusRingTypeDefault;
-    button.target = self.document;
-    button.action = @selector(toggleInlineWritingMode:);
-
-    toolbarItem.view = button;
-    [self->toolbarItemIdentifierObjectDictionary setObject:toolbarItem forKey:@"inline-edit"];
-    return toolbarItem;
 }
 
 /**

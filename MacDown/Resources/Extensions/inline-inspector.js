@@ -143,6 +143,15 @@
       'background:' + AC + ';color:#fff;border:none;border-radius:50%;width:26px;height:26px;font:13px/1 system-ui,sans-serif;' +
       'box-shadow:0 2px 6px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;}' +
     '#mdi-edit.on{opacity:.92;transform:none;}#mdi-edit:hover{opacity:1;}' +
+    // Botón flotante translúcido (esquina sup. derecha): activa el modo escritura. Sólo
+    // aparece en sólo-visor, el hogar único de la edición inline.
+    '#mdi-fab{position:fixed;top:14px;right:16px;z-index:2147483640;width:38px;height:38px;border-radius:50%;' +
+      'border:1px solid ' + CM('30%') + ';background:color-mix(in srgb,' + AC + ' 14%,rgba(255,255,255,.55));' +
+      '-webkit-backdrop-filter:saturate(1.3) blur(6px);backdrop-filter:saturate(1.3) blur(6px);color:' + AC + ';' +
+      'font:16px/1 system-ui,sans-serif;display:none;align-items:center;justify-content:center;cursor:pointer;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,.16);opacity:.5;transition:opacity .12s,background .12s,transform .1s,color .12s;}' +
+    '#mdi-fab:hover{opacity:1;transform:scale(1.06);}' +
+    '#mdi-fab.on{background:' + AC + ';color:#fff;opacity:1;border-color:' + AC + ';}' +
     '.mdi-edid{margin:.4em 0;border:1.5px solid ' + AC + ';border-radius:7px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.10);}' +
     '.mdi-edid textarea{display:block;width:100%;box-sizing:border-box;border:0;outline:0;resize:vertical;min-height:60px;' +
       'font:13.5px/1.55 ui-monospace,Menlo,monospace;padding:11px 13px;color:inherit;background:transparent;}' +
@@ -156,13 +165,15 @@
   var gutter = mk('mdi-gutter'), fondo = mk('mdi-fondo'), fondolbl = mk('mdi-fondolbl'),
       ov = mk('mdi-ov'), sel = mk('mdi-sel'), tip = mk('mdi-tip');
   var edit = mk('mdi-edit', 'button'); edit.title = 'Editar'; edit.textContent = '✏︎';
+  var fab = mk('mdi-fab', 'button'); fab.title = 'Edición inline (modo escritura)'; fab.textContent = '✎';
+  fab.addEventListener('click', function (e) { e.stopPropagation(); post({ type: 'inlineToggle' }); });
 
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
   // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
   // fuente↔visor: las esquinas reflejan el bloque del cursor del editor). El inspector
   // espacial (franja, fondo, hover, fijar, ✏︎) sólo aparece con el modo escritura ON.
-  var writingMode = false;
+  var writingMode = false, inlineAvailable = false;
   gutter.style.display = 'none';             // oculta hasta entrar en modo escritura
 
   // Rectángulo de contenido. `right` es la COLUMNA DEL TEXTO (mediana de los bordes
@@ -418,7 +429,16 @@
     else { pinned = false; gutter.style.display = 'none'; gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; }
   }
   window.macdownSetWritingMode = function (on) {
-    on = !!on; if (on === writingMode) return; writingMode = on; applyMode();
+    on = !!on;
+    if (on !== writingMode) { writingMode = on; applyMode(); }
+    fab.classList.toggle('on', writingMode);
+  };
+  // Disponibilidad de la edición inline (la fija ObjC = estamos en sólo-visor). Muestra/
+  // oculta el botón flotante; si deja de estar disponible, apaga el modo escritura.
+  window.macdownSetInlineAvailable = function (on) {
+    inlineAvailable = !!on;
+    fab.style.display = inlineAvailable ? 'flex' : 'none';
+    if (!inlineAvailable && writingMode) { writingMode = false; applyMode(); fab.classList.remove('on'); }
   };
   window.macdownInlineWritingMode = function () { return writingMode; };
 })();
