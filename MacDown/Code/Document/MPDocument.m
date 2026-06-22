@@ -2330,13 +2330,16 @@ static NSString *MPJSStringLiteral(NSString *s)
 
 #pragma mark - Edición inline (modo escritura)
 
-// Toggle de la toolbar (botón PushOnPushOff). En sólo-visor no aplica (no hay editor
-// que editar) → se fuerza OFF.
+// Toggle de la toolbar (botón PushOnPushOff). Disponible siempre que haya VISOR — también
+// en sólo-visor, que es justo cuando quieres tocar un detalle con poca fricción.
 - (IBAction)toggleInlineWritingMode:(id)sender
 {
-    if (![self editorVisible])
-        self.inlineWritingMode = NO;
-    else if ([sender isKindOfClass:[NSButton class]])
+    if (![self previewVisible])             // sin visor no hay inspector que activar
+    {
+        [self mp_updateInlineWritingToolbarState];
+        return;
+    }
+    if ([sender isKindOfClass:[NSButton class]])
         self.inlineWritingMode = ([(NSButton *)sender state] == NSControlStateValueOn);
     else
         self.inlineWritingMode = !self.inlineWritingMode;
@@ -2367,23 +2370,17 @@ static NSString *MPJSStringLiteral(NSString *s)
         if ([b isKindOfClass:[NSButton class]])
         {
             b.state = self.inlineWritingMode ? NSControlStateValueOn : NSControlStateValueOff;
-            b.enabled = [self editorVisible];
+            b.enabled = [self previewVisible];        // disponible con visor (split o sólo-visor)
         }
         break;
     }
 }
 
-// C: en sólo-visor se oculta la toolbar (estás leyendo) y el modo escritura se fuerza
-// OFF (sin editor no aplica). Al volver a mostrar el editor, se restaura la toolbar.
+// Al cambiar de modo de vista sólo refrescamos la disponibilidad del toggle (habilitado
+// si hay visor). La toolbar NO se oculta: el toggle de edición inline debe seguir a mano
+// en sólo-visor (es su caso de uso principal: leer y editar un detalle con poca fricción).
 - (void)mp_syncChromeForLayout:(MPDefaultLayout)mode
 {
-    BOOL previewOnly = (mode == MPDefaultLayoutPreviewOnly);
-    self.windowForSheet.toolbar.visible = !previewOnly;
-    if (previewOnly && self.inlineWritingMode)
-    {
-        self.inlineWritingMode = NO;
-        [self mp_pushInlineWritingModeToPreview];
-    }
     [self mp_updateInlineWritingToolbarState];
 }
 
