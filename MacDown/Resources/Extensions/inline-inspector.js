@@ -217,7 +217,8 @@
     tip.style.left = (r.left - 6) + 'px'; tip.style.top = Math.max(4, r.top - 26) + 'px'; tip.style.opacity = 1;
   }
   function showEdit(en) {
-    if (en.kind === 'Documento') { edit.classList.remove('on'); return; }  // el doc entero no se edita inline
+    // El ✏︎ sólo aparece con el bloque FIJADO (no en hover transitorio) y nunca en el doc.
+    if (!pinned || en.kind === 'Documento') { edit.classList.remove('on'); return; }
     var r = boxOf(en);
     edit.style.left = (activationX() - 13) + 'px';     // junto a la línea de activación
     edit.style.top = Math.max(6, r.top - 13) + 'px';
@@ -396,7 +397,7 @@
     if (editing || !writingMode || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     if (pinned && primary) { e.preventDefault(); requestEdit(primary); }
   });
-  edit.addEventListener('click', function () { if (writingMode && primary) requestEdit(primary); });
+  edit.addEventListener('click', function () { if (writingMode && pinned && primary) requestEdit(primary); });
 
   window.addEventListener('keydown', function (e) {
     if (editing || !writingMode) return;
