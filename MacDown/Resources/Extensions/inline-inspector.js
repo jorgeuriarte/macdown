@@ -127,9 +127,10 @@
     '#mdi-gutter.hot{background:linear-gradient(90deg,transparent 0%,' + CM('26%') + ' 42%,' + CM('26%') + ' 100%);border-left-color:' + CM('72%') + ';}' +
     '#mdi-fondo{position:fixed;pointer-events:none;z-index:2147483601;border-radius:10px;opacity:0;transition:all .08s ease;' +
       'background:' + CM('6%') + ';box-shadow:inset 0 0 0 1px ' + CM('16%') + ';}' +
-    '#mdi-fondolbl{position:fixed;pointer-events:none;z-index:2147483602;opacity:0;transition:all .08s;' +
+    '#mdi-fondolbl{position:fixed;pointer-events:auto;cursor:pointer;z-index:2147483602;opacity:0;transition:opacity .08s,background .1s,color .1s;' +
       'font:600 10px/1 system-ui,sans-serif;letter-spacing:.3px;text-transform:uppercase;color:' + AC + ';' +
-      'background:color-mix(in srgb,' + AC + ' 12%,#fff);padding:3px 7px;border-radius:0 0 7px 0;}' +
+      'background:color-mix(in srgb,' + AC + ' 12%,#fff);padding:4px 8px;border-radius:0 0 7px 0;white-space:nowrap;}' +
+    '#mdi-fondolbl:hover{background:' + AC + ';color:#fff;}' +
     '#mdi-ov{position:fixed;pointer-events:none;z-index:2147483603;border-radius:5px;opacity:0;transition:all .07s ease;' +
       'background:' + CM('9%') + ';box-shadow:inset 0 0 0 1.5px ' + CM('48%') + ';}' +
     '#mdi-sel{position:fixed;pointer-events:none;z-index:2147483604;border-radius:5px;opacity:0;transition:all .07s ease;background-repeat:no-repeat;' +
@@ -173,6 +174,7 @@
 
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
+  var overLabel = false;                       // ratón sobre la etiqueta del fondo (congela la selección)
   var curChain = null, curLevel = 0;          // cadena de contenedores y nivel actual (X en la franja)
   var _inlinePreviewCb = null;                // callback del resultado de "Vista previa"
   // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
@@ -209,13 +211,8 @@
     boxEl.style.opacity = 1;
   }
   function showTip(en) {
-    var dots = '';
-    if (curChain && curChain.length > 1) {
-      for (var i = 0; i < curChain.length; i++) dots += (i === curLevel ? '●' : '·');
-      dots = ' <span style="letter-spacing:2px;opacity:.5">' + dots + '</span>';
-    }
     tip.innerHTML = '<b>' + (ICON[en.kind] || '') + ' ' + en.kind + '</b><span>L' +
-      en.s + (en.e !== en.s ? '–' + en.e : '') + (en.name ? ' · ' + en.name : '') + dots + '</span>';
+      en.s + (en.e !== en.s ? '–' + en.e : '') + (en.name ? ' · ' + en.name : '') + '</span>';
     var r = boxOf(en);
     tip.style.left = (r.left - 6) + 'px'; tip.style.top = Math.max(4, r.top - 26) + 'px'; tip.style.opacity = 1;
   }
@@ -254,12 +251,22 @@
   // se resuelve como ítem suelto, y un ítem padre (en la fila de su propio texto) como
   // el ítem+subítems. Las tablas son ATÓMICAS (sus filas/celdas son sub-líneas que no
   // sabemos reescribir por columnas) → se devuelve la <table> entera.
+  // <li> hijo directo de una lista más cercano a la Y (para huecos entre ítems).
+  function nearestChildLi(list, y) {
+    var lis = list.querySelectorAll(':scope > li[data-sourcepos]'), best = null, bd = 1e9;
+    for (var i = 0; i < lis.length; i++) {
+      var r = lis[i].getBoundingClientRect();
+      var d = (y < r.top) ? (r.top - y) : (y > r.bottom ? (y - r.bottom) : 0);
+      if (d < bd) { bd = d; best = lis[i]; }
+    }
+    return best;
+  }
   function blockAtY(y) {
     var c = contentRect(), sx = c.left + (c.right - c.left) * 0.4;
     var el = document.elementFromPoint(sx, y);
     if (el && el.closest) {
       var tbl = el.closest('table[data-sourcepos]');
-      if (tbl) return tbl;
+      if (tbl) return tbl;                             // tabla atómica
       var blk = el.closest('[data-sourcepos]');
       if (blk && document.body.contains(blk)) return blk;
     }
@@ -293,34 +300,33 @@
     }
     return best;
   }
-  // Cadena de contenedores de un bloque (hoja→raíz): bloque + ancestros DOM con
-  // data-sourcepos (ítem→lista→…) + secciones virtuales + documento.
+  // Cadena CANÓNICA de un bloque (niveles fijos, sin intermedios de anidamiento):
+  //   depth 0: el bloque (la hoja que elige la Y; ítem concreto, párrafo, título…)
+  //   depth 1: su contenedor de NIVEL SUPERIOR (la lista/cita entera), si la hoja anida
+  //   depth 2: la sección (heading) más interna que lo contiene, si la hay
+  //   depth 3: el documento
   function chainFor(leaf) {
-    var blocks = bodyBlocks(), chain = [], n = leaf;
-    while (n && n !== document.body) { if (isContent(n)) chain.push(blockEntry(n)); n = n.parentElement; }
-    if (!chain.length) chain.push(blockEntry(leaf));
-    var top = chain[chain.length - 1].first, idx = blocks.indexOf(top);
-    var firstB = blocks[0], lastB = blocks[blocks.length - 1];
-    for (var lvl = 6; lvl >= 2; lvl--) {
-      var s = sectionAt(blocks, idx, lvl);
-      var full = s && s.first === firstB && s.last === lastB;
-      if (s && !full && !chain.some(function (c) { return c.first === s.first && c.last === s.last; })) chain.push(s);
-    }
-    chain.push(docEntry(blocks));
+    var blocks = bodyBlocks(), chain = [];
+    var e0 = blockEntry(leaf); e0.depth = 0; chain.push(e0);
+    var top = leaf; while (top.parentElement && top.parentElement !== document.body) top = top.parentElement;
+    if (top !== leaf && isContent(top)) { var e1 = blockEntry(top); e1.depth = 1; chain.push(e1); }
+    var sec = innerSection(blocks, (isContent(top) ? top : leaf));
+    if (sec) { sec.depth = 2; chain.push(sec); }
+    var d = docEntry(blocks); d.depth = 3; chain.push(d);
     return chain;
   }
-  // Resolución 2D: la Y elige el bloque (hoja); la X dentro de la franja elige el NIVEL
-  // de la cadena (más a la derecha = contenedor más grande: ítem→lista→sección→documento).
-  function resolve(x, y) {
+  // Apuntas al TEXTO de un bloque → ese bloque (el más profundo: ítem, párrafo, título),
+  // con su contenedor de fondo. Apuntas a un HUECO/margen dentro de una sección → la
+  // sección. Fuera de toda sección → el documento.
+  function resolve(y) {
     var blocks = bodyBlocks(); if (!blocks.length) return null;
-    var leaf = blockAtY(y) || nearestBlockToY(y);
-    if (!leaf) return null;
-    var chain = chainFor(leaf);
-    var ax = activationX(), w = Math.max(1, window.innerWidth - ax);
-    var frac = (x - ax) / w; if (frac < 0) frac = 0; if (frac > 0.999) frac = 0.999;
-    var level = Math.floor(frac * chain.length);
-    if (level >= chain.length) level = chain.length - 1;
-    return { prim: chain[level], fondoSection: chain[level + 1] || null, chain: chain, level: level };
+    var b = blockAtY(y);
+    if (b) return { prim: blockEntry(b), fondoSection: containerOf(b) };
+    var s = deepestSectionAtY(blocks, y);
+    if (s) return { prim: s, fondoSection: null };
+    var c = contentRect();
+    if (y >= c.top && y <= c.bottom) return { prim: docEntry(blocks), fondoSection: null };
+    return null;
   }
 
   function render(box) {
@@ -341,11 +347,31 @@
   }
   positionGutter();
 
+  // Subir al contenedor: clic en la etiqueta del fondo (• Lista / ▤ Sección) promueve la
+  // selección un nivel (ítem→lista→sección→documento). Mientras el ratón está sobre la
+  // etiqueta, se congela la selección (overLabel) para que no cambie al acercarte.
+  function parentOf(en) {
+    if (!en || en.kind === 'Documento') return null;
+    if (en.kind === 'Sección' || en.kind === 'Subsección' || en.kind === 'Apartado')
+      return docEntry(bodyBlocks());             // (simplificación) el padre de una sección = documento
+    return containerOf(en.first);                // bloque → su contenedor (lista→sección…)
+  }
+  function promote() {
+    if (!primSection) return;
+    primary = primSection; pinned = true;
+    primSection = parentOf(primary);
+    ov.style.opacity = 0; place(sel, primary, 5, 4); showFondo(primSection); showTip(primary); showEdit(primary);
+    sendEditor(primary, 'selection');
+  }
+  fondolbl.addEventListener('mouseenter', function () { overLabel = true; });
+  fondolbl.addEventListener('mouseleave', function () { overLabel = false; });
+  fondolbl.addEventListener('click', function (e) { e.stopPropagation(); if (writingMode && !editing) promote(); });
+
   window.addEventListener('mousemove', function (e) {
-    if (editing || !writingMode) return;
+    if (editing || !writingMode || overLabel) return;
     if (pinned) {                                  // se mantiene fijado hasta salir del primario (con margen) o Esc
       var r = boxOf(primary);
-      var safe = e.target === edit || edit.contains(e.target) ||
+      var safe = e.target === edit || edit.contains(e.target) || e.target === fondolbl ||
         (e.clientX > r.left - 12 && e.clientX < r.right + 60 && e.clientY > r.top - 16 && e.clientY < r.bottom + 14);
       if (!safe) unpin();
       return;
@@ -353,13 +379,13 @@
     var c = contentRect();
     var inZone = e.clientX > activationX() && e.clientX < window.innerWidth &&
                  e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
-    if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientX, e.clientY); if (box) render(box); else clearAll(); }
+    if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientY); if (box) render(box); else clearAll(); }
     else { gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; clearEditor(); }
   });
 
   // clic en la franja = fijar
   window.addEventListener('click', function (e) {
-    if (editing || !writingMode || e.target === edit || edit.contains(e.target) || (e.target.closest && e.target.closest('.mdi-edid'))) return;
+    if (editing || !writingMode || e.target === edit || edit.contains(e.target) || e.target === fondolbl || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     var c = contentRect();
     var inZone = e.clientX > activationX() && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
     if (inZone && primary) { pinned = true; render({ prim: primary, fondoSection: primSection }); }
@@ -466,8 +492,7 @@
     }
     if (!best) return;
     var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
-    curChain = chainFor(best); curLevel = 0;
-    primary = curChain[0]; primSection = curChain[1] || null;
+    primary = blockEntry(best); primSection = containerOf(best);
     if (writingMode) { showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary); }
     else { ov.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0; place(sel, primary, 5, 4); }  // CAPA A: esquinas de sincronización
   };
