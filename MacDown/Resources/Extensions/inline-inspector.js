@@ -123,8 +123,8 @@
   var st = document.createElement('style');
   st.textContent =
     '#mdi-gutter{position:fixed;z-index:2147483600;pointer-events:none;top:0;height:100vh;transition:background .15s,border-color .15s;' +
-      'background:linear-gradient(90deg,transparent,' + CM('14%') + ');border-left:1px dashed ' + CM('38%') + ';}' +
-    '#mdi-gutter.hot{background:linear-gradient(90deg,transparent,' + CM('30%') + ');border-left-color:' + CM('70%') + ';}' +
+      'background:linear-gradient(90deg,transparent 0%,' + CM('13%') + ' 42%,' + CM('13%') + ' 100%);border-left:1px dashed ' + CM('38%') + ';}' +
+    '#mdi-gutter.hot{background:linear-gradient(90deg,transparent 0%,' + CM('26%') + ' 42%,' + CM('26%') + ' 100%);border-left-color:' + CM('72%') + ';}' +
     '#mdi-fondo{position:fixed;pointer-events:none;z-index:2147483601;border-radius:10px;opacity:0;transition:all .08s ease;' +
       'background:' + CM('6%') + ';box-shadow:inset 0 0 0 1px ' + CM('16%') + ';}' +
     '#mdi-fondolbl{position:fixed;pointer-events:none;z-index:2147483602;opacity:0;transition:all .08s;' +
@@ -192,6 +192,11 @@
     return { left: l, right: col, top: t, bottom: b };
   }
 
+  // X de la "línea de activación" (borde izquierdo de la franja): a GUT del borde del
+  // texto. La franja (gradiente) se dibuja desde aquí hasta el borde de la ventana, y el
+  // botón ✏︎ se ancla aquí (no al borde del bloque), para quedar junto a la franja.
+  function activationX() { var c = contentRect(); return c.right - (c.right - c.left) * GUT; }
+
   function place(boxEl, en, padX, padY) {
     var r = boxOf(en);
     boxEl.style.left = (r.left - padX) + 'px'; boxEl.style.top = (r.top - padY) + 'px';
@@ -207,7 +212,9 @@
   function showEdit(en) {
     if (en.kind === 'Documento') { edit.classList.remove('on'); return; }  // el doc entero no se edita inline
     var r = boxOf(en);
-    edit.style.left = (r.right - 4 - 26) + 'px'; edit.style.top = Math.max(6, r.top - 13) + 'px'; edit.classList.add('on');
+    edit.style.left = (activationX() - 13) + 'px';     // junto a la línea de activación
+    edit.style.top = Math.max(6, r.top - 13) + 'px';
+    edit.classList.add('on');
   }
   function showFondo(s) {
     if (!s) { fondo.style.opacity = 0; fondolbl.style.opacity = 0; return; }
@@ -288,8 +295,9 @@
 
   // ---------- interacción base ----------
   function positionGutter() {
-    var c = contentRect(), w = (c.right - c.left) * GUT;
-    gutter.style.left = (c.right - w) + 'px'; gutter.style.width = w + 'px';
+    var ax = activationX();
+    gutter.style.left = ax + 'px';
+    gutter.style.width = Math.max(0, window.innerWidth - ax) + 'px';   // hasta el borde de la ventana
   }
   positionGutter();
 
@@ -303,7 +311,7 @@
       return;
     }
     var c = contentRect();
-    var inZone = e.clientX > c.right - (c.right - c.left) * GUT && e.clientX < window.innerWidth &&
+    var inZone = e.clientX > activationX() && e.clientX < window.innerWidth &&
                  e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
     if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientY); if (box) render(box); else clearAll(); }
     else { gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; clearEditor(); }
@@ -313,7 +321,7 @@
   window.addEventListener('click', function (e) {
     if (editing || !writingMode || e.target === edit || edit.contains(e.target) || (e.target.closest && e.target.closest('.mdi-edid'))) return;
     var c = contentRect();
-    var inZone = e.clientX > c.right - (c.right - c.left) * GUT && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
+    var inZone = e.clientX > activationX() && e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
     if (inZone && primary) { pinned = true; render({ prim: primary, fondoSection: primSection }); }
   });
 
