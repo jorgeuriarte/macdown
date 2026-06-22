@@ -170,7 +170,7 @@
       ov = mk('mdi-ov'), sel = mk('mdi-sel'), tip = mk('mdi-tip');
   var edit = mk('mdi-edit', 'button'); edit.title = 'Editar'; edit.textContent = '✏︎';
   var fab = mk('mdi-fab', 'button'); fab.title = 'Edición inline (modo escritura)'; fab.textContent = '✎';
-  fab.addEventListener('click', function (e) { e.stopPropagation(); post({ type: 'inlineToggle' }); });
+  fab.addEventListener('click', function (e) { e.stopPropagation(); if (editing) return; post({ type: 'inlineToggle' }); });
 
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
@@ -226,7 +226,8 @@
     edit.classList.add('on');
   }
   function showFondo(s) {
-    if (!s) { fondo.style.opacity = 0; fondolbl.style.opacity = 0; return; }
+    if (!s) { fondo.style.opacity = 0; fondolbl.style.opacity = 0; fondolbl.style.pointerEvents = 'none'; overLabel = false; return; }
+    fondolbl.style.pointerEvents = 'auto';
     var r = boxOf(s);
     fondo.style.left = (r.left - 10) + 'px'; fondo.style.top = (r.top - 8) + 'px';
     fondo.style.width = (r.right - r.left + 20) + 'px'; fondo.style.height = (r.bottom - r.top + 16) + 'px'; fondo.style.opacity = 1;
@@ -235,6 +236,7 @@
   }
   function clearAll() {
     ov.style.opacity = 0; sel.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0;
+    fondolbl.style.pointerEvents = 'none'; overLabel = false;   // no dejar la etiqueta capturando invisible
     tip.style.opacity = 0; edit.classList.remove('on');
   }
 
@@ -461,6 +463,7 @@
     var previewing = false;
     function autosize() { ta.style.height = 'auto'; ta.style.height = Math.max(60, ta.scrollHeight) + 'px'; }
     function close() {
+      if (!editing) return;                      // idempotente (Esc global + textarea, doble cierre)
       _inlinePreviewCb = null; _inlineCancel = null;
       wrap.remove();
       for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
@@ -528,6 +531,7 @@
   }
   window.macdownSetWritingMode = function (on) {
     on = !!on;
+    if (!on && editing && _inlineCancel) _inlineCancel();   // no dejar un editor huérfano
     if (on !== writingMode) { writingMode = on; applyMode(); }
     fab.classList.toggle('on', writingMode);
   };
@@ -536,7 +540,10 @@
   window.macdownSetInlineAvailable = function (on) {
     inlineAvailable = !!on;
     fab.style.display = inlineAvailable ? 'flex' : 'none';
-    if (!inlineAvailable && writingMode) { writingMode = false; applyMode(); fab.classList.remove('on'); }
+    if (!inlineAvailable) {
+      if (editing && _inlineCancel) _inlineCancel();        // cierra el editor antes de apagar
+      if (writingMode) { writingMode = false; applyMode(); fab.classList.remove('on'); }
+    }
   };
   window.macdownInlineWritingMode = function () { return writingMode; };
   // Resultado de la vista previa (ObjC renderiza el fragmento con cmark y lo devuelve).

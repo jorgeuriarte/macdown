@@ -623,6 +623,16 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     return [self.currentHtml rangeOfString:@"language-mermaid"].location != NSNotFound;
 }
 
+- (BOOL)currentHTMLHasMath
+{
+    // MPProtectMath normaliza TODA fórmula a \(...\) (inline) o $$...$$ (display) en el
+    // HTML final, así que detectarlas es fiable. Sólo así cargamos MathJax (que viene del
+    // CDN y es lento en el primer render): los documentos SIN fórmulas no lo arrastran.
+    NSString *html = self.currentHtml;
+    return ([html rangeOfString:@"\\("].location != NSNotFound
+            || [html rangeOfString:@"$$"].location != NSNotFound);
+}
+
 - (NSArray *)mermaidScripts
 {
     // TODO
@@ -697,7 +707,7 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     {
         [scripts addObjectsFromArray:self.mermaidScripts];
     }
-    if ([d rendererHasMathJax:self])
+    if ([d rendererHasMathJax:self] && [self currentHTMLHasMath])
         [scripts addObjectsFromArray:self.mathjaxScripts];
     return scripts;
 }
@@ -906,7 +916,7 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
         // mermaid stylesheet is needed (see -stylesheets).
         [scripts addObjectsFromArray:self.mermaidScripts];
     }
-    if ([self.delegate rendererHasMathJax:self])
+    if ([self.delegate rendererHasMathJax:self] && [self currentHTMLHasMath])
     {
         scriptsOption = MPAssetEmbedded;
         [scripts addObjectsFromArray:self.mathjaxScripts];
