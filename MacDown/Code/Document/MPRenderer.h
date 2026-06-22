@@ -35,6 +35,10 @@ typedef NS_ENUM(NSUInteger, MPCodeBlockAccessoryType)
 - (NSString *)HTMLForExportWithStyles:(BOOL)withStyles
                          highlighting:(BOOL)withHighlighting;
 
+// Renderiza un FRAGMENTO de markdown a HTML body con el mismo motor (cmark + extensiones
+// del documento), sin TOC ni front-matter. Lo usa la "Vista previa" de la edición inline.
+- (NSString *)previewHTMLForMarkdownFragment:(NSString *)markdown;
+
 // Heading anchors. anchorSlugForHeadingText: produces a GitHub-compatible
 // slug so that hand-written TOC links like [Foo](#foo) resolve.
 // HTMLByAddingHeadingAnchors: injects id="slug" into <h1>..<h6> tags

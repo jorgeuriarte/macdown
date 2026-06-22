@@ -1705,6 +1705,17 @@ static NSString *MPJSStringLiteral(NSString *s)
                 self.inlineWritingMode ? @"true" : @"false"] completionHandler:nil];
         }
     }
+    else if ([type isEqualToString:@"inlinePreview"])
+    {
+        // "Vista previa" del mini-editor: renderiza el markdown editado con cmark (mismo
+        // motor) y lo devuelve al visor para mostrarlo en línea.
+        NSString *md = [body[@"text"] isKindOfClass:[NSString class]] ? body[@"text"] : @"";
+        NSString *html = [self.renderer previewHTMLForMarkdownFragment:md];
+        NSString *js = [NSString stringWithFormat:
+            @"window.macdownInlinePreviewResult&&window.macdownInlinePreviewResult(%@);",
+            MPJSStringLiteral(html ? html : @"")];
+        [self.wkPreview evaluateJavaScript:js completionHandler:nil];
+    }
     else if ([type isEqualToString:@"inlineEdit"])
     {
         // Edición inline (M1): el visor pide el FUENTE Markdown de un bloque (rango de

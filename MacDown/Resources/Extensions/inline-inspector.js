@@ -158,7 +158,10 @@
     '.mdi-edid .bar{display:flex;justify-content:space-between;align-items:center;background:' + CM('7%') + ';' +
       'border-top:1px solid ' + CM('22%') + ';padding:5px 8px 5px 11px;font:11px system-ui,sans-serif;color:#8a929c;}' +
     '.mdi-edid .bar button{font:600 12px system-ui,sans-serif;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;}' +
-    '.mdi-edid .done{background:' + AC + ';color:#fff;}.mdi-edid .cancel{background:' + CM('16%') + ';color:inherit;margin-right:6px;}';
+    '.mdi-edid .done{background:' + AC + ';color:#fff;}.mdi-edid .cancel{background:' + CM('16%') + ';color:inherit;}' +
+    '.mdi-edid .view{background:' + CM('10%') + ';color:inherit;}' +
+    '.mdi-edid .bar button{margin-left:6px;}' +
+    '.mdi-edid .mdi-edprev{padding:6px 13px 12px;min-height:60px;}';
   (document.head || document.documentElement).appendChild(st);
 
   function mk(id, tag) { var e = document.createElement(tag || 'div'); e.id = id; document.body.appendChild(e); return e; }
@@ -170,6 +173,8 @@
 
   // ---------- estado ----------
   var primary = null, primSection = null, pinned = false, editing = false, GUT = 0.16, lastSent = '';
+  var curChain = null, curLevel = 0;          // cadena de contenedores y nivel actual (X en la franja)
+  var _inlinePreviewCb = null;                // callback del resultado de "Vista previa"
   // Modo escritura: cuando está OFF (por defecto), sólo vive la CAPA A (sincronización
   // fuente↔visor: las esquinas reflejan el bloque del cursor del editor). El inspector
   // espacial (franja, fondo, hover, fijar, ✏︎) sólo aparece con el modo escritura ON.
@@ -204,8 +209,13 @@
     boxEl.style.opacity = 1;
   }
   function showTip(en) {
+    var dots = '';
+    if (curChain && curChain.length > 1) {
+      for (var i = 0; i < curChain.length; i++) dots += (i === curLevel ? '●' : '·');
+      dots = ' <span style="letter-spacing:2px;opacity:.5">' + dots + '</span>';
+    }
     tip.innerHTML = '<b>' + (ICON[en.kind] || '') + ' ' + en.kind + '</b><span>L' +
-      en.s + (en.e !== en.s ? '–' + en.e : '') + (en.name ? ' · ' + en.name : '') + '</span>';
+      en.s + (en.e !== en.s ? '–' + en.e : '') + (en.name ? ' · ' + en.name : '') + dots + '</span>';
     var r = boxOf(en);
     tip.style.left = (r.left - 6) + 'px'; tip.style.top = Math.max(4, r.top - 26) + 'px'; tip.style.opacity = 1;
   }
@@ -273,19 +283,49 @@
     }
     return best;
   }
-  function resolve(y) {
+  // Bloque más cercano a una Y (para huecos entre bloques).
+  function nearestBlockToY(y) {
+    var bs = bodyBlocks(), best = null, bd = 1e9;
+    for (var i = 0; i < bs.length; i++) {
+      var r = bs[i].getBoundingClientRect();
+      var d = (y < r.top) ? (r.top - y) : (y > r.bottom ? (y - r.bottom) : 0);
+      if (d < bd) { bd = d; best = bs[i]; }
+    }
+    return best;
+  }
+  // Cadena de contenedores de un bloque (hoja→raíz): bloque + ancestros DOM con
+  // data-sourcepos (ítem→lista→…) + secciones virtuales + documento.
+  function chainFor(leaf) {
+    var blocks = bodyBlocks(), chain = [], n = leaf;
+    while (n && n !== document.body) { if (isContent(n)) chain.push(blockEntry(n)); n = n.parentElement; }
+    if (!chain.length) chain.push(blockEntry(leaf));
+    var top = chain[chain.length - 1].first, idx = blocks.indexOf(top);
+    var firstB = blocks[0], lastB = blocks[blocks.length - 1];
+    for (var lvl = 6; lvl >= 2; lvl--) {
+      var s = sectionAt(blocks, idx, lvl);
+      var full = s && s.first === firstB && s.last === lastB;
+      if (s && !full && !chain.some(function (c) { return c.first === s.first && c.last === s.last; })) chain.push(s);
+    }
+    chain.push(docEntry(blocks));
+    return chain;
+  }
+  // Resolución 2D: la Y elige el bloque (hoja); la X dentro de la franja elige el NIVEL
+  // de la cadena (más a la derecha = contenedor más grande: ítem→lista→sección→documento).
+  function resolve(x, y) {
     var blocks = bodyBlocks(); if (!blocks.length) return null;
-    var b = blockAtY(y);
-    if (b) return { prim: blockEntry(b), fondoSection: containerOf(b) };            // texto de bloque/ítem/título → ese bloque; fondo=contenedor
-    var s = deepestSectionAtY(blocks, y);                                          // hueco dentro de una sección → la sección
-    if (s) return { prim: s, fondoSection: null };
-    var c = contentRect();                                                         // hueco fuera de toda sección → el documento
-    if (y >= c.top && y <= c.bottom) return { prim: docEntry(blocks), fondoSection: null };
-    return null;
+    var leaf = blockAtY(y) || nearestBlockToY(y);
+    if (!leaf) return null;
+    var chain = chainFor(leaf);
+    var ax = activationX(), w = Math.max(1, window.innerWidth - ax);
+    var frac = (x - ax) / w; if (frac < 0) frac = 0; if (frac > 0.999) frac = 0.999;
+    var level = Math.floor(frac * chain.length);
+    if (level >= chain.length) level = chain.length - 1;
+    return { prim: chain[level], fondoSection: chain[level + 1] || null, chain: chain, level: level };
   }
 
   function render(box) {
     primary = box.prim; primSection = box.fondoSection || null;
+    if (box.chain) { curChain = box.chain; curLevel = box.level; }
     showFondo(primSection);
     var target = pinned ? sel : ov; (pinned ? ov : sel).style.opacity = 0;
     place(target, primary, 5, 4); showTip(primary); showEdit(primary);
@@ -313,7 +353,7 @@
     var c = contentRect();
     var inZone = e.clientX > activationX() && e.clientX < window.innerWidth &&
                  e.clientY > c.top - 4 && e.clientY < c.bottom + 4;
-    if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientY); if (box) render(box); else clearAll(); }
+    if (inZone) { gutter.classList.add('hot'); var box = resolve(e.clientX, e.clientY); if (box) render(box); else clearAll(); }
     else { gutter.classList.remove('hot'); clearAll(); primary = null; primSection = null; clearEditor(); }
   });
 
@@ -374,17 +414,21 @@
     var bar = document.createElement('div'); bar.className = 'bar';
     var lab = document.createElement('span');
     lab.textContent = 'editando ' + en.kind + ' · L' + en.s + (en.e !== en.s ? '–' + en.e : '') + ' (markdown fuente)';
+    var prev = document.createElement('div'); prev.className = 'mdi-edprev'; prev.style.display = 'none';
     var btns = document.createElement('span');
     var cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancelar';
+    var view = document.createElement('button'); view.className = 'view'; view.textContent = 'Vista';
     var done = document.createElement('button'); done.className = 'done'; done.textContent = 'Hecho';
-    btns.appendChild(cancel); btns.appendChild(done); bar.appendChild(lab); bar.appendChild(btns);
-    wrap.appendChild(ta); wrap.appendChild(bar);
+    btns.appendChild(cancel); btns.appendChild(view); btns.appendChild(done); bar.appendChild(lab); bar.appendChild(btns);
+    wrap.appendChild(ta); wrap.appendChild(prev); wrap.appendChild(bar);
     hide[0].parentNode.insertBefore(wrap, hide[0]);
     for (var k = 0; k < hide.length; k++) hide[k].style.display = 'none';
     clearAll(); pinned = false;
 
+    var previewing = false;
     function autosize() { ta.style.height = 'auto'; ta.style.height = Math.max(60, ta.scrollHeight) + 'px'; }
     function close() {
+      _inlinePreviewCb = null;
       wrap.remove();
       for (var k = 0; k < hide.length; k++) hide[k].style.display = '';
       editing = false;
@@ -392,6 +436,17 @@
     ta.addEventListener('input', autosize);
     cancel.onclick = function () { close(); };
     done.onclick = function () { post({ type: 'inlineEditCommit', startLine: en.s, endLine: en.e, text: ta.value }); close(); };
+    // Vista previa: renderiza el markdown editado con el MISMO motor (cmark, vía ObjC).
+    view.onclick = function () {
+      if (!previewing) {
+        prev.innerHTML = '<div style="opacity:.5;font:13px system-ui,sans-serif">renderizando…</div>';
+        ta.style.display = 'none'; prev.style.display = ''; previewing = true; view.textContent = 'Editar';
+        _inlinePreviewCb = function (html) { prev.innerHTML = html; };
+        post({ type: 'inlinePreview', text: ta.value });
+      } else {
+        prev.style.display = 'none'; ta.style.display = ''; previewing = false; view.textContent = 'Vista'; ta.focus();
+      }
+    };
     ta.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); done.onclick(); }
       else if (ev.key === 'Escape') { ev.preventDefault(); cancel.onclick(); }
@@ -411,7 +466,8 @@
     }
     if (!best) return;
     var tbl = best.closest && best.closest('table[data-sourcepos]'); if (tbl) best = tbl;
-    primary = blockEntry(best); primSection = containerOf(best);
+    curChain = chainFor(best); curLevel = 0;
+    primary = curChain[0]; primSection = curChain[1] || null;
     if (writingMode) { showFondo(primSection); place(ov, primary, 5, 4); showTip(primary); showEdit(primary); }
     else { ov.style.opacity = 0; fondo.style.opacity = 0; fondolbl.style.opacity = 0; place(sel, primary, 5, 4); }  // CAPA A: esquinas de sincronización
   };
@@ -449,4 +505,6 @@
     if (!inlineAvailable && writingMode) { writingMode = false; applyMode(); fab.classList.remove('on'); }
   };
   window.macdownInlineWritingMode = function () { return writingMode; };
+  // Resultado de la vista previa (ObjC renderiza el fragmento con cmark y lo devuelve).
+  window.macdownInlinePreviewResult = function (html) { if (_inlinePreviewCb) _inlinePreviewCb(html); };
 })();

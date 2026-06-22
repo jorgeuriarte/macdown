@@ -733,6 +733,32 @@ NS_INLINE MPLanguageCallback MPMakeLanguageCallback(
     }];
 }
 
+// Vista previa de un fragmento (edición inline): mismo motor que el documento, pero sin
+// TOC ni front-matter (un fragmento no los resuelve). No toca el estado del renderer.
+- (NSString *)previewHTMLForMarkdownFragment:(NSString *)markdown
+{
+    if (![markdown isKindOfClass:[NSString class]])
+        return @"";
+    id<MPRendererDelegate> delegate = self.delegate;
+
+    int cmarkOptions = CMARK_OPT_DEFAULT;
+    if ([delegate rendererHasSmartyPants:self])
+        cmarkOptions |= CMARK_OPT_SMART;
+    if ([delegate rendererHasHardWrap:self])
+        cmarkOptions |= CMARK_OPT_HARDBREAKS;
+    if ([delegate rendererHasFootnotes:self])
+        cmarkOptions |= CMARK_OPT_FOOTNOTES;
+
+    NSArray<NSString *> *extNames = [delegate rendererCmarkExtensions:self];
+    MPCmarkRenderFlags renderFlags = [delegate rendererCmarkRenderFlags:self];
+    MPLanguageCallback langCallback = MPMakeLanguageCallback(self);
+    NSMutableArray<NSString *> *langs = [NSMutableArray array];   // efímero, no muta self
+
+    return MPHTMLFromMarkdown(markdown, extNames, cmarkOptions, renderFlags,
+                              NO, [delegate rendererHasMathJax:self], nil,
+                              langCallback, langs);
+}
+
 - (void)parseAndRenderNow
 {
     [self parseAndRenderWithMaxDelay:0];
